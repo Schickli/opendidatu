@@ -6,6 +6,7 @@ export interface Posten {
   name: string
   coordinates: { lat: number; lng: number }
   kommentar: string
+  minNachrichtenProStunde: number
   erstelltAm: string
 }
 
@@ -47,6 +48,7 @@ export const SAMPLE_POSTEN: Posten[] = [
     name: 'Posten Alpha',
     coordinates: { lat: 46.95, lng: 7.45 },
     kommentar: 'Hauptbeobachtungspunkt Nord',
+    minNachrichtenProStunde: 2,
     erstelltAm: new Date().toISOString(),
   },
   {
@@ -54,6 +56,7 @@ export const SAMPLE_POSTEN: Posten[] = [
     name: 'Posten Bravo',
     coordinates: { lat: 46.93, lng: 7.48 },
     kommentar: 'Sekundaerposten Ost',
+    minNachrichtenProStunde: 1,
     erstelltAm: new Date().toISOString(),
   },
   {
@@ -61,6 +64,7 @@ export const SAMPLE_POSTEN: Posten[] = [
     name: 'Posten Charlie',
     coordinates: { lat: 46.96, lng: 7.42 },
     kommentar: 'Vorgeschobener Posten West',
+    minNachrichtenProStunde: 3,
     erstelltAm: new Date().toISOString(),
   },
 ]

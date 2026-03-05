@@ -6,17 +6,38 @@ import 'leaflet/dist/leaflet.css'
 import { useData } from '@/lib/data-context'
 import type { Posten, Nachricht } from '@/lib/store'
 
-function createPostenIcon(hasMessages: boolean, isSelected: boolean) {
-  const size = isSelected ? 14 : 10
-  const color = hasMessages ? '#222' : '#888'
-  const border = isSelected ? '2px solid #000' : '1px solid #555'
+function getMessagesLastHour(
+  postenId: string,
+  nachrichten: { postenId: string; erstelltAm: string }[]
+) {
+  const oneHourAgo = Date.now() - 60 * 60 * 1000
+  return nachrichten.filter(
+    (n) => n.postenId === postenId && new Date(n.erstelltAm).getTime() > oneHourAgo
+  ).length
+}
+
+function createPostenIcon(status: 'ok' | 'warning' | 'none', isSelected: boolean) {
+  const size = isSelected ? 16 : 12
+  // ok = dark fill, warning = red outline, none = gray
+  let bg: string
+  let border: string
+  if (status === 'warning') {
+    bg = 'transparent'
+    border = `2px solid #c44`
+  } else if (status === 'ok') {
+    bg = '#222'
+    border = isSelected ? '2px solid #000' : '1px solid #444'
+  } else {
+    bg = '#aaa'
+    border = isSelected ? '2px solid #000' : '1px solid #888'
+  }
 
   return L.divIcon({
     className: 'custom-posten-marker',
     html: `<div style="
       width: ${size}px;
       height: ${size}px;
-      background: ${color};
+      background: ${bg};
       border: ${border};
       box-sizing: border-box;
     "></div>`,
@@ -82,17 +103,36 @@ export function ZentraleMap() {
       const postenNachrichten = nachrichten.filter(
         (n: Nachricht) => n.postenId === p.id
       )
-      const hasMessages = postenNachrichten.length > 0
+      const msgsLastHour = getMessagesLastHour(p.id, nachrichten)
       const isSelected = selectedPostenId === p.id
 
-      const icon = createPostenIcon(hasMessages, isSelected)
+      let status: 'ok' | 'warning' | 'none'
+      if (p.minNachrichtenProStunde === 0) {
+        status = postenNachrichten.length > 0 ? 'ok' : 'none'
+      } else if (msgsLastHour >= p.minNachrichtenProStunde) {
+        status = 'ok'
+      } else {
+        status = 'warning'
+      }
+
+      const icon = createPostenIcon(status, isSelected)
       const marker = L.marker([p.coordinates.lat, p.coordinates.lng], {
         icon,
       }).addTo(map)
 
       // Build popup content
+      const statusLabel =
+        status === 'ok'
+          ? `<span style="color: #333;">&#10003; ${msgsLastHour}/${p.minNachrichtenProStunde} N/h</span>`
+          : status === 'warning'
+            ? `<span style="color: #c44;">&#9888; ${msgsLastHour}/${p.minNachrichtenProStunde} N/h</span>`
+            : `<span style="color: #999;">${msgsLastHour} N/h</span>`
+
       let popupContent = `<div style="font-family: monospace; font-size: 12px; min-width: 180px; padding: 4px 0;">
-        <div style="font-weight: 700; font-size: 13px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 6px;">${p.name}</div>
+        <div style="font-weight: 700; font-size: 13px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+          <span>${p.name}</span>
+          ${statusLabel}
+        </div>
         <div style="color: #666; font-size: 11px; margin-bottom: 4px;">${p.coordinates.lat.toFixed(4)}, ${p.coordinates.lng.toFixed(4)}</div>`
 
       if (p.kommentar) {
