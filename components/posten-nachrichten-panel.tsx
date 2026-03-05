@@ -58,13 +58,17 @@ function formatTime(iso: string) {
   })
 }
 
-function getMessagesLastHour(
+function countMessagesLastHourByType(
   postenId: string,
-  nachrichten: { postenId: string; erstelltAm: string }[]
+  nachrichtentypId: string,
+  nachrichten: { postenId: string; nachrichtentypId: string; erstelltAm: string }[]
 ) {
   const oneHourAgo = Date.now() - 60 * 60 * 1000
   return nachrichten.filter(
-    (n) => n.postenId === postenId && new Date(n.erstelltAm).getTime() > oneHourAgo
+    (n) =>
+      n.postenId === postenId &&
+      n.nachrichtentypId === nachrichtentypId &&
+      new Date(n.erstelltAm).getTime() > oneHourAgo
   ).length
 }
 
@@ -75,7 +79,6 @@ interface PostenFormData {
   lat: string
   lng: string
   kommentar: string
-  minNachrichtenProStunde: string
 }
 
 const emptyPostenForm: PostenFormData = {
@@ -83,7 +86,6 @@ const emptyPostenForm: PostenFormData = {
   lat: '',
   lng: '',
   kommentar: '',
-  minNachrichtenProStunde: '1',
 }
 
 function postenToForm(p: Posten): PostenFormData {
@@ -92,38 +94,7 @@ function postenToForm(p: Posten): PostenFormData {
     lat: String(p.coordinates.lat),
     lng: String(p.coordinates.lng),
     kommentar: p.kommentar,
-    minNachrichtenProStunde: String(p.minNachrichtenProStunde),
   }
-}
-
-// --- Status Badge ---
-
-function StatusBadge({
-  current,
-  required,
-}: {
-  current: number
-  required: number
-}) {
-  const fulfilled = current >= required
-  return (
-    <div
-      className={`flex items-center gap-1 border px-1.5 py-0.5 font-mono text-xs ${
-        fulfilled
-          ? 'border-border text-foreground'
-          : 'border-destructive/30 bg-destructive/5 text-destructive'
-      }`}
-    >
-      {fulfilled ? (
-        <Check className="size-3" />
-      ) : (
-        <AlertTriangle className="size-3" />
-      )}
-      <span>
-        {current}/{required} N/h
-      </span>
-    </div>
-  )
 }
 
 // --- Main Component ---
@@ -156,20 +127,20 @@ export function PostenNachrichtenPanel() {
   const [msgKommentar, setMsgKommentar] = useState('')
   const [deleteNachrichtConfirm, setDeleteNachrichtConfirm] = useState<string | null>(null)
 
-  // Expanded posten in the list (to show messages inline)
+  // Expanded posten in the list
   const [expandedPosten, setExpandedPosten] = useState<Set<string>>(new Set())
 
-  // Filtered messages
+  // Message types that have a minimum > 0
+  const typenMitMinimum = useMemo(
+    () => nachrichtentypen.filter((t) => t.minProStunde > 0),
+    [nachrichtentypen]
+  )
+
+  // Filtered messages for the bottom list
   const filteredNachrichten = useMemo(() => {
     if (!selectedPostenId) return nachrichten
     return nachrichten.filter((n) => n.postenId === selectedPostenId)
   }, [nachrichten, selectedPostenId])
-
-  // Display posten: if filtered, only show the selected one; otherwise all
-  const displayPosten = useMemo(() => {
-    if (selectedPostenId) return posten.filter((p) => p.id === selectedPostenId)
-    return posten
-  }, [posten, selectedPostenId])
 
   const selectedTyp = nachrichtentypen.find((t) => t.id === selectedTypId)
 
@@ -190,14 +161,12 @@ export function PostenNachrichtenPanel() {
   function handleSavePosten() {
     const lat = parseFloat(postenForm.lat)
     const lng = parseFloat(postenForm.lng)
-    const minMsg = parseInt(postenForm.minNachrichtenProStunde, 10)
     if (!postenForm.name.trim() || isNaN(lat) || isNaN(lng)) return
 
     const data = {
       name: postenForm.name.trim(),
       coordinates: { lat, lng },
       kommentar: postenForm.kommentar.trim(),
-      minNachrichtenProStunde: isNaN(minMsg) || minMsg < 0 ? 0 : minMsg,
     }
 
     if (editingPostenId) {
@@ -283,8 +252,14 @@ export function PostenNachrichtenPanel() {
     return nachrichtentypen.find((t) => t.id === id)?.name || '?'
   }
 
-  function getPostenNachrichten(postenId: string) {
-    return nachrichten.filter((n) => n.postenId === postenId)
+  // Check if a posten fulfills all type minimums
+  function getPostenOverallStatus(postenId: string): 'ok' | 'warning' | 'none' {
+    if (typenMitMinimum.length === 0) return 'none'
+    const allFulfilled = typenMitMinimum.every((typ) => {
+      const count = countMessagesLastHourByType(postenId, typ.id, nachrichten)
+      return count >= typ.minProStunde
+    })
+    return allFulfilled ? 'ok' : 'warning'
   }
 
   return (
@@ -328,185 +303,155 @@ export function PostenNachrichtenPanel() {
         </div>
       </div>
 
-      {/* Posten list with nested messages */}
+      {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto">
-        {displayPosten.length === 0 ? (
+        {/* Posten list */}
+        {posten.length === 0 ? (
           <div className="p-4 text-center text-xs text-muted-foreground">
-            {selectedPostenId
-              ? 'Ausgewaehlter Posten nicht gefunden'
-              : 'Keine Posten vorhanden. Erstellen Sie einen neuen Posten.'}
+            Keine Posten vorhanden. Erstellen Sie einen neuen Posten.
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {displayPosten.map((p) => {
-              const postenMessages = getPostenNachrichten(p.id)
-              const messagesLastHour = getMessagesLastHour(p.id, nachrichten)
-              const isExpanded =
-                expandedPosten.has(p.id) || selectedPostenId === p.id
+            {posten.map((p) => {
+              const overallStatus = getPostenOverallStatus(p.id)
+              const isExpanded = expandedPosten.has(p.id)
+              const isSelected = selectedPostenId === p.id
 
               return (
                 <div key={p.id}>
                   {/* Posten row */}
                   <div
-                    className={`group flex cursor-pointer items-start gap-2 px-3 py-2 transition-colors hover:bg-secondary ${
-                      selectedPostenId === p.id ? 'bg-secondary' : ''
+                    className={`flex items-start gap-2 px-3 py-2 transition-colors hover:bg-secondary ${
+                      isSelected ? 'bg-secondary' : ''
                     }`}
-                    onClick={() => toggleExpand(p.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ')
-                        toggleExpand(p.id)
-                    }}
                   >
-                    {/* Expand chevron */}
-                    <div className="mt-0.5 shrink-0">
+                    {/* Expand chevron -- clickable */}
+                    <button
+                      onClick={() => toggleExpand(p.id)}
+                      className="mt-0.5 shrink-0 p-0.5"
+                      aria-label={isExpanded ? 'Zuklappen' : 'Aufklappen'}
+                    >
                       {isExpanded ? (
                         <ChevronDown className="size-3 text-muted-foreground" />
                       ) : (
                         <ChevronRight className="size-3 text-muted-foreground" />
                       )}
-                    </div>
+                    </button>
 
-                    {/* Posten info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
+                    {/* Posten info -- clickable to select/filter */}
+                    <button
+                      className="flex flex-1 min-w-0 flex-col items-start text-left"
+                      onClick={() =>
+                        setSelectedPostenId(isSelected ? null : p.id)
+                      }
+                    >
+                      <div className="flex w-full items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-foreground">
                             {p.name}
                           </span>
-                          <span className="text-xs text-muted-foreground">
-                            {p.coordinates.lat.toFixed(4)},{' '}
-                            {p.coordinates.lng.toFixed(4)}
-                          </span>
+                          {isSelected && (
+                            <span className="border border-foreground bg-foreground px-1 py-px text-[10px] uppercase text-primary-foreground">
+                              Aktiv
+                            </span>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <StatusBadge
-                            current={messagesLastHour}
-                            required={p.minNachrichtenProStunde}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            {postenMessages.length} total
-                          </span>
-                        </div>
+                        {/* Overall status indicator */}
+                        {overallStatus === 'ok' && (
+                          <div className="flex items-center gap-1 text-xs text-foreground">
+                            <Check className="size-3" />
+                          </div>
+                        )}
+                        {overallStatus === 'warning' && (
+                          <div className="flex items-center gap-1 text-xs text-destructive">
+                            <AlertTriangle className="size-3" />
+                          </div>
+                        )}
                       </div>
-                      {p.kommentar && (
-                        <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {p.kommentar}
-                        </div>
-                      )}
-                    </div>
+                      <span className="text-xs text-muted-foreground">
+                        {p.coordinates.lat.toFixed(4)},{' '}
+                        {p.coordinates.lng.toFixed(4)}
+                      </span>
+                    </button>
 
-                    {/* Actions */}
-                    <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    {/* Actions -- always visible */}
+                    <div className="flex shrink-0 items-center gap-0.5">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openCreateNachricht(p.id)
-                        }}
-                        className="p-1 text-muted-foreground hover:text-foreground"
+                        onClick={() => openCreateNachricht(p.id)}
+                        className="p-1.5 text-muted-foreground hover:text-foreground"
                         aria-label={`Nachricht fuer ${p.name} erfassen`}
                         title="Nachricht erfassen"
                       >
-                        <Plus className="size-3" />
+                        <Plus className="size-3.5" />
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedPostenId(
-                            selectedPostenId === p.id ? null : p.id
-                          )
-                        }}
-                        className={`p-1 ${
-                          selectedPostenId === p.id
-                            ? 'text-foreground'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                        aria-label={`Auf Karte zeigen`}
-                        title="Auf Karte filtern"
-                      >
-                        <MapPin className="size-3" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openEditPosten(p)
-                        }}
-                        className="p-1 text-muted-foreground hover:text-foreground"
+                        onClick={() => openEditPosten(p)}
+                        className="p-1.5 text-muted-foreground hover:text-foreground"
                         aria-label={`${p.name} bearbeiten`}
+                        title="Bearbeiten"
                       >
-                        <Pencil className="size-3" />
+                        <Pencil className="size-3.5" />
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setDeletePostenConfirm(p.id)
-                        }}
-                        className="p-1 text-muted-foreground hover:text-destructive"
+                        onClick={() => setDeletePostenConfirm(p.id)}
+                        className="p-1.5 text-muted-foreground hover:text-destructive"
                         aria-label={`${p.name} loeschen`}
+                        title="Loeschen"
                       >
-                        <Trash2 className="size-3" />
+                        <Trash2 className="size-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  {/* Expanded: messages for this posten */}
+                  {/* Expanded: status grid per Nachrichtentyp */}
                   {isExpanded && (
-                    <div className="border-t border-dashed border-border bg-secondary/50">
-                      {postenMessages.length === 0 ? (
-                        <div className="px-8 py-2 text-xs text-muted-foreground">
-                          Keine Nachrichten vorhanden
+                    <div className="border-t border-dashed border-border bg-secondary/50 px-3 py-2">
+                      {typenMitMinimum.length === 0 ? (
+                        <div className="px-5 py-1 text-xs text-muted-foreground">
+                          Keine Nachrichtentypen mit Minimum definiert
                         </div>
                       ) : (
-                        <div className="divide-y divide-dashed divide-border">
-                          {postenMessages.map((n) => (
-                            <div
-                              key={n.id}
-                              className="group/msg flex items-start gap-2 px-8 py-1.5"
-                            >
-                              <MessageSquare className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-foreground">
-                                    {getTypName(n.nachrichtentypId)}
-                                  </span>
-                                  <div className="flex flex-wrap gap-1">
-                                    {n.werte.map((w) => (
-                                      <span
-                                        key={w.kategorieId}
-                                        className="inline-flex border border-border text-xs"
-                                      >
-                                        <span className="bg-secondary px-1 py-px text-muted-foreground">
-                                          {w.kategorieName}
-                                        </span>
-                                        <span className="px-1 py-px font-bold">
-                                          {w.wert}
-                                        </span>
-                                      </span>
-                                    ))}
-                                  </div>
-                                  <div className="ml-auto flex items-center gap-1 text-muted-foreground">
-                                    <Clock className="size-3" />
-                                    <span className="text-xs">
-                                      {formatTime(n.erstelltAm)}
-                                    </span>
-                                  </div>
-                                </div>
-                                {n.kommentar && (
-                                  <div className="mt-0.5 text-xs text-muted-foreground">
-                                    {n.kommentar}
-                                  </div>
-                                )}
-                              </div>
-                              <button
-                                onClick={() => setDeleteNachrichtConfirm(n.id)}
-                                className="shrink-0 p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover/msg:opacity-100"
-                                aria-label="Nachricht loeschen"
+                        <div className="flex flex-col gap-1 pl-5">
+                          <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            Status letzte Stunde
+                          </div>
+                          {typenMitMinimum.map((typ) => {
+                            const count = countMessagesLastHourByType(
+                              p.id,
+                              typ.id,
+                              nachrichten
+                            )
+                            const fulfilled = count >= typ.minProStunde
+                            return (
+                              <div
+                                key={typ.id}
+                                className="flex items-center justify-between gap-2"
                               >
-                                <Trash2 className="size-3" />
-                              </button>
-                            </div>
-                          ))}
+                                <span className="text-xs text-foreground">
+                                  {typ.name}
+                                </span>
+                                <div
+                                  className={`flex items-center gap-1 border px-1.5 py-0.5 text-xs ${
+                                    fulfilled
+                                      ? 'border-border text-foreground'
+                                      : 'border-destructive/40 text-destructive'
+                                  }`}
+                                >
+                                  {fulfilled ? (
+                                    <Check className="size-3" />
+                                  ) : (
+                                    <AlertTriangle className="size-3" />
+                                  )}
+                                  {count}/{typ.minProStunde}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {p.kommentar && (
+                        <div className="mt-2 border-t border-dashed border-border pl-5 pt-1.5 text-xs text-muted-foreground">
+                          {p.kommentar}
                         </div>
                       )}
                     </div>
@@ -517,14 +462,23 @@ export function PostenNachrichtenPanel() {
           </div>
         )}
 
-        {/* Unassigned messages section (when no filter) */}
-        {!selectedPostenId && (
-          <div className="border-t border-border">
-            <div className="px-3 py-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Alle Nachrichten ({filteredNachrichten.length})
-              </span>
+        {/* Messages section */}
+        <div className="border-t-2 border-border">
+          <div className="flex items-center justify-between px-3 py-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {selectedPostenId
+                ? `Nachrichten — ${posten.find((p) => p.id === selectedPostenId)?.name || '?'}`
+                : `Alle Nachrichten`}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {filteredNachrichten.length}
+            </span>
+          </div>
+          {filteredNachrichten.length === 0 ? (
+            <div className="px-3 pb-3 text-xs text-muted-foreground">
+              Keine Nachrichten vorhanden
             </div>
+          ) : (
             <div className="divide-y divide-border">
               {filteredNachrichten.map((n) => {
                 const postenName =
@@ -532,7 +486,7 @@ export function PostenNachrichtenPanel() {
                 return (
                   <div
                     key={n.id}
-                    className="group/msg flex items-start gap-2 px-3 py-1.5"
+                    className="flex items-start gap-2 px-3 py-1.5"
                   >
                     <MessageSquare className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
                     <div className="flex-1 min-w-0">
@@ -540,9 +494,11 @@ export function PostenNachrichtenPanel() {
                         <span className="text-xs font-bold text-foreground">
                           {getTypName(n.nachrichtentypId)}
                         </span>
-                        <span className="text-xs text-muted-foreground">
-                          {postenName}
-                        </span>
+                        {!selectedPostenId && (
+                          <span className="text-xs text-muted-foreground">
+                            {postenName}
+                          </span>
+                        )}
                         <div className="flex flex-wrap gap-1">
                           {n.werte.map((w) => (
                             <span
@@ -558,10 +514,10 @@ export function PostenNachrichtenPanel() {
                             </span>
                           ))}
                         </div>
-                        <div className="ml-auto flex items-center gap-1 text-muted-foreground">
+                        <div className="ml-auto flex shrink-0 items-center gap-1 text-muted-foreground">
                           <Clock className="size-3" />
                           <span className="text-xs">
-                            {formatDateTime(n.erstelltAm)}
+                            {formatTime(n.erstelltAm)}
                           </span>
                         </div>
                       </div>
@@ -573,7 +529,7 @@ export function PostenNachrichtenPanel() {
                     </div>
                     <button
                       onClick={() => setDeleteNachrichtConfirm(n.id)}
-                      className="shrink-0 p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover/msg:opacity-100"
+                      className="shrink-0 p-1 text-muted-foreground hover:text-destructive"
                       aria-label="Nachricht loeschen"
                     >
                       <Trash2 className="size-3" />
@@ -582,8 +538,8 @@ export function PostenNachrichtenPanel() {
                 )
               })}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ===== DIALOGS ===== */}
@@ -641,27 +597,6 @@ export function PostenNachrichtenPanel() {
                   step="0.0001"
                 />
               </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
-                Min. Nachrichten / Stunde
-              </label>
-              <Input
-                value={postenForm.minNachrichtenProStunde}
-                onChange={(e) =>
-                  setPostenForm({
-                    ...postenForm,
-                    minNachrichtenProStunde: e.target.value.replace(/\D/g, ''),
-                  })
-                }
-                placeholder="1"
-                className="text-base"
-                type="number"
-                min="0"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Mindestanzahl Nachrichten pro Stunde fuer Statusueberwachung
-              </p>
             </div>
             <div>
               <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">

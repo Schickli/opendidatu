@@ -6,13 +6,17 @@ import 'leaflet/dist/leaflet.css'
 import { useData } from '@/lib/data-context'
 import type { Posten, Nachricht } from '@/lib/store'
 
-function getMessagesLastHour(
+function getMessagesLastHourByType(
   postenId: string,
-  nachrichten: { postenId: string; erstelltAm: string }[]
+  nachrichtentypId: string,
+  nachrichten: { postenId: string; nachrichtentypId: string; erstelltAm: string }[]
 ) {
   const oneHourAgo = Date.now() - 60 * 60 * 1000
   return nachrichten.filter(
-    (n) => n.postenId === postenId && new Date(n.erstelltAm).getTime() > oneHourAgo
+    (n) =>
+      n.postenId === postenId &&
+      n.nachrichtentypId === nachrichtentypId &&
+      new Date(n.erstelltAm).getTime() > oneHourAgo
   ).length
 }
 
@@ -99,20 +103,25 @@ export function ZentraleMap() {
     markersRef.current.forEach((m) => m.remove())
     markersRef.current = []
 
+    // Types with minimum requirements
+    const typenMitMinimum = nachrichtentypen.filter((t) => t.minProStunde > 0)
+
     posten.forEach((p: Posten) => {
       const postenNachrichten = nachrichten.filter(
         (n: Nachricht) => n.postenId === p.id
       )
-      const msgsLastHour = getMessagesLastHour(p.id, nachrichten)
       const isSelected = selectedPostenId === p.id
 
+      // Determine status based on per-type minimums
       let status: 'ok' | 'warning' | 'none'
-      if (p.minNachrichtenProStunde === 0) {
+      if (typenMitMinimum.length === 0) {
         status = postenNachrichten.length > 0 ? 'ok' : 'none'
-      } else if (msgsLastHour >= p.minNachrichtenProStunde) {
-        status = 'ok'
       } else {
-        status = 'warning'
+        const allFulfilled = typenMitMinimum.every((typ) => {
+          const count = getMessagesLastHourByType(p.id, typ.id, nachrichten)
+          return count >= typ.minProStunde
+        })
+        status = allFulfilled ? 'ok' : 'warning'
       }
 
       const icon = createPostenIcon(status, isSelected)
@@ -120,20 +129,29 @@ export function ZentraleMap() {
         icon,
       }).addTo(map)
 
-      // Build popup content
-      const statusLabel =
-        status === 'ok'
-          ? `<span style="color: #333;">&#10003; ${msgsLastHour}/${p.minNachrichtenProStunde} N/h</span>`
-          : status === 'warning'
-            ? `<span style="color: #c44;">&#9888; ${msgsLastHour}/${p.minNachrichtenProStunde} N/h</span>`
-            : `<span style="color: #999;">${msgsLastHour} N/h</span>`
+      // Build popup -- show per-type status breakdown
+      let statusHtml = ''
+      if (typenMitMinimum.length > 0) {
+        statusHtml = typenMitMinimum
+          .map((typ) => {
+            const count = getMessagesLastHourByType(p.id, typ.id, nachrichten)
+            const ok = count >= typ.minProStunde
+            const color = ok ? '#333' : '#c44'
+            const icon = ok ? '&#10003;' : '&#9888;'
+            return `<span style="color: ${color};">${icon} ${typ.name} ${count}/${typ.minProStunde}</span>`
+          })
+          .join(' &nbsp; ')
+      }
 
-      let popupContent = `<div style="font-family: monospace; font-size: 12px; min-width: 180px; padding: 4px 0;">
-        <div style="font-weight: 700; font-size: 13px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
-          <span>${p.name}</span>
-          ${statusLabel}
+      let popupContent = `<div style="font-family: monospace; font-size: 12px; min-width: 200px; padding: 4px 0;">
+        <div style="font-weight: 700; font-size: 13px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 6px;">
+          ${p.name}
         </div>
         <div style="color: #666; font-size: 11px; margin-bottom: 4px;">${p.coordinates.lat.toFixed(4)}, ${p.coordinates.lng.toFixed(4)}</div>`
+
+      if (statusHtml) {
+        popupContent += `<div style="font-size: 11px; margin-bottom: 6px; display: flex; gap: 8px; flex-wrap: wrap;">${statusHtml}</div>`
+      }
 
       if (p.kommentar) {
         popupContent += `<div style="color: #444; font-size: 11px; margin-bottom: 6px;">${p.kommentar}</div>`

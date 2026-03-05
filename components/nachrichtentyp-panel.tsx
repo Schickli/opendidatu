@@ -33,12 +33,14 @@ export function NachrichtentypPanel() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [typName, setTypName] = useState('')
   const [kategorien, setKategorien] = useState<KategorieFormRow[]>([])
+  const [minProStunde, setMinProStunde] = useState('0')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   function openCreate() {
     setEditingId(null)
     setTypName('')
     setKategorien([{ id: generateId(), name: '', maxZiffern: '1' }])
+    setMinProStunde('0')
     setDialogOpen(true)
   }
 
@@ -54,6 +56,7 @@ export function NachrichtentypPanel() {
         maxZiffern: String(k.maxZiffern),
       }))
     )
+    setMinProStunde(String(typ.minProStunde))
     setDialogOpen(true)
   }
 
@@ -91,15 +94,19 @@ export function NachrichtentypPanel() {
       })
     )
 
+    const parsedMin = parseInt(minProStunde, 10)
+
     if (editingId) {
       updateNachrichtentyp(editingId, {
         name: typName.trim(),
         kategorien: parsedKategorien,
+        minProStunde: isNaN(parsedMin) || parsedMin < 0 ? 0 : parsedMin,
       })
     } else {
       addNachrichtentyp({
         name: typName.trim(),
         kategorien: parsedKategorien,
+        minProStunde: isNaN(parsedMin) || parsedMin < 0 ? 0 : parsedMin,
       })
     }
 
@@ -146,9 +153,16 @@ export function NachrichtentypPanel() {
                     <span className="font-mono text-xs font-semibold text-foreground">
                       {typ.name}
                     </span>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {typ.kategorien.length} Kat.
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {typ.minProStunde > 0 && (
+                        <span className="border border-border px-1.5 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">
+                          Min {typ.minProStunde}/h
+                        </span>
+                      )}
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {typ.kategorien.length} Kat.
+                      </span>
+                    </div>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {typ.kategorien.map((k) => (
@@ -164,20 +178,20 @@ export function NachrichtentypPanel() {
                     ))}
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="flex shrink-0 items-center gap-0.5">
                   <button
                     onClick={() => openEdit(typ.id)}
-                    className="p-1 text-muted-foreground hover:text-foreground"
+                    className="p-1.5 text-muted-foreground hover:text-foreground"
                     aria-label={`${typ.name} bearbeiten`}
                   >
-                    <Pencil className="size-3" />
+                    <Pencil className="size-3.5" />
                   </button>
                   <button
                     onClick={() => setDeleteConfirm(typ.id)}
-                    className="p-1 text-muted-foreground hover:text-destructive"
+                    className="p-1.5 text-muted-foreground hover:text-destructive"
                     aria-label={`${typ.name} loeschen`}
                   >
-                    <Trash2 className="size-3" />
+                    <Trash2 className="size-3.5" />
                   </button>
                 </div>
               </div>
@@ -269,6 +283,25 @@ export function NachrichtentypPanel() {
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 Max = Maximale Anzahl Ziffern pro Kategorie
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
+                Min. Nachrichten / Stunde
+              </label>
+              <Input
+                value={minProStunde}
+                onChange={(e) =>
+                  setMinProStunde(e.target.value.replace(/\D/g, ''))
+                }
+                placeholder="0"
+                className="w-24 font-mono text-sm"
+                type="number"
+                min="0"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                0 = keine Mindestanforderung
               </p>
             </div>
           </div>
