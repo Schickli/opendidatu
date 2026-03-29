@@ -23,12 +23,10 @@ export default function ZentralePage() {
       <div className="flex h-screen flex-col overflow-hidden bg-background">
         <ZentraleHeader />
         <div className="flex flex-1 overflow-hidden">
-          {/* Map area */}
           <div className="flex-1 overflow-hidden">
             <ZentraleMap />
           </div>
-          {/* Sidebar */}
-          <div className="w-[420px] shrink-0 overflow-hidden">
+          <div className="w-105 shrink-0 overflow-hidden">
             <ZentraleSidebar />
           </div>
         </div>

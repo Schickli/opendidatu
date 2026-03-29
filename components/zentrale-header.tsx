@@ -3,19 +3,7 @@
 import { useData } from '@/lib/data-context'
 
 export function ZentraleHeader() {
-  const { posten, nachrichten } = useData()
-
-  const now = new Date()
-  const timeStr = now.toLocaleTimeString('de-CH', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-  const dateStr = now.toLocaleDateString('de-CH', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  const { posten, meldungen } = useData()
 
   return (
     <header className="flex h-12 items-center justify-between border-b border-border bg-background px-4">
@@ -25,17 +13,13 @@ export function ZentraleHeader() {
         </h1>
         <div className="h-4 w-px bg-border" />
         <span className="font-mono text-xs text-muted-foreground">
-          Nachrichtenposten
+          Meldungsposten
         </span>
       </div>
       <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground">
         <span>{posten.length} Posten</span>
         <div className="h-4 w-px bg-border" />
-        <span>{nachrichten.length} Nachrichten</span>
-        <div className="h-4 w-px bg-border" />
-        <span>
-          {dateStr} {timeStr}
-        </span>
+        <span>{meldungen.length} Meldungen</span>
       </div>
     </header>
   )

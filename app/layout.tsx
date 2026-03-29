@@ -7,8 +7,8 @@ const _jetbrainsMono = JetBrains_Mono({ subsets: ['latin'] })
 const _inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Zentrale - Nachrichtenposten',
-  description: 'Informationssystem fuer die Zentrale zur Verwaltung von Nachrichtenposten',
+  title: 'Zentrale - Meldungsposten',
+  description: 'Informationssystem fuer die Zentrale zur Verwaltung von Meldungsposten',
   icons: {
     icon: [
       {

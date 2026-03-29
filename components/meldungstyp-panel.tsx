@@ -12,7 +12,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Plus, Pencil, Trash2, Settings2, X } from 'lucide-react'
-import type { NachrichtentypKategorie } from '@/lib/store'
+import type { MeldungstypKategorie } from '@/lib/store'
 import { generateId } from '@/lib/store'
 
 interface KategorieFormRow {
@@ -21,12 +21,12 @@ interface KategorieFormRow {
   maxZiffern: string
 }
 
-export function NachrichtentypPanel() {
+export function MeldungstypPanel() {
   const {
-    nachrichtentypen,
-    addNachrichtentyp,
-    updateNachrichtentyp,
-    deleteNachrichtentyp,
+    meldungstypen,
+    addMeldungstyp,
+    updateMeldungstyp,
+    deleteMeldungstyp,
   } = useData()
 
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -45,7 +45,7 @@ export function NachrichtentypPanel() {
   }
 
   function openEdit(id: string) {
-    const typ = nachrichtentypen.find((t) => t.id === id)
+    const typ = meldungstypen.find((t) => t.id === id)
     if (!typ) return
     setEditingId(id)
     setTypName(typ.name)
@@ -86,7 +86,7 @@ export function NachrichtentypPanel() {
     const validKategorien = kategorien.filter((k) => k.name.trim())
     if (validKategorien.length === 0) return
 
-    const parsedKategorien: NachrichtentypKategorie[] = validKategorien.map(
+    const parsedKategorien: MeldungstypKategorie[] = validKategorien.map(
       (k) => ({
         id: k.id,
         name: k.name.trim(),
@@ -97,13 +97,13 @@ export function NachrichtentypPanel() {
     const parsedMin = parseInt(minProStunde, 10)
 
     if (editingId) {
-      updateNachrichtentyp(editingId, {
+      updateMeldungstyp(editingId, {
         name: typName.trim(),
         kategorien: parsedKategorien,
         minProStunde: isNaN(parsedMin) || parsedMin < 0 ? 0 : parsedMin,
       })
     } else {
-      addNachrichtentyp({
+      addMeldungstyp({
         name: typName.trim(),
         kategorien: parsedKategorien,
         minProStunde: isNaN(parsedMin) || parsedMin < 0 ? 0 : parsedMin,
@@ -114,7 +114,7 @@ export function NachrichtentypPanel() {
   }
 
   function handleDelete(id: string) {
-    deleteNachrichtentyp(id)
+    deleteMeldungstyp(id)
     setDeleteConfirm(null)
   }
 
@@ -122,7 +122,7 @@ export function NachrichtentypPanel() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <span className="font-mono text-xs font-bold uppercase tracking-wider text-foreground">
-          Nachrichtentypen
+          Meldungstypen
         </span>
         <Button
           variant="outline"
@@ -136,19 +136,19 @@ export function NachrichtentypPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {nachrichtentypen.length === 0 ? (
+        {meldungstypen.length === 0 ? (
           <div className="p-4 text-center font-mono text-xs text-muted-foreground">
-            Keine Nachrichtentypen definiert
+            Keine Meldungstypen definiert
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {nachrichtentypen.map((typ) => (
+            {meldungstypen.map((typ) => (
               <div
                 key={typ.id}
                 className="group flex items-start gap-2 px-3 py-2"
               >
                 <Settings2 className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs font-semibold text-foreground">
                       {typ.name}
@@ -200,12 +200,11 @@ export function NachrichtentypPanel() {
         )}
       </div>
 
-      {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="font-mono sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-mono text-sm uppercase tracking-wider">
-              {editingId ? 'Nachrichtentyp bearbeiten' : 'Neuer Nachrichtentyp'}
+              {editingId ? 'Meldungstyp bearbeiten' : 'Neuer Meldungstyp'}
             </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4">
@@ -288,7 +287,7 @@ export function NachrichtentypPanel() {
 
             <div>
               <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
-                Min. Nachrichten / Stunde
+                Min. Meldungen / Stunde
               </label>
               <Input
                 value={minProStunde}
@@ -327,7 +326,6 @@ export function NachrichtentypPanel() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm */}
       <Dialog
         open={!!deleteConfirm}
         onOpenChange={() => setDeleteConfirm(null)}
@@ -335,13 +333,13 @@ export function NachrichtentypPanel() {
         <DialogContent className="font-mono">
           <DialogHeader>
             <DialogTitle className="font-mono text-sm uppercase tracking-wider">
-              Nachrichtentyp loeschen
+              Meldungstyp loeschen
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Soll der Nachrichtentyp{' '}
+            Soll der Meldungstyp{' '}
             <strong>
-              {nachrichtentypen.find((t) => t.id === deleteConfirm)?.name}
+              {meldungstypen.find((t) => t.id === deleteConfirm)?.name}
             </strong>{' '}
             wirklich geloescht werden?
           </p>

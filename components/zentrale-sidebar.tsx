@@ -1,8 +1,8 @@
 'use client'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { PostenNachrichtenPanel } from '@/components/posten-nachrichten-panel'
-import { NachrichtentypPanel } from '@/components/nachrichtentyp-panel'
+import { PostenMeldungenPanel } from '@/components/posten-meldungen-panel'
+import { MeldungstypPanel } from '@/components/meldungstyp-panel'
 import { Radio, Settings2 } from 'lucide-react'
 
 export function ZentraleSidebar() {
@@ -27,10 +27,10 @@ export function ZentraleSidebar() {
         </TabsList>
 
         <TabsContent value="uebersicht" className="mt-0 flex-1 overflow-hidden">
-          <PostenNachrichtenPanel />
+          <PostenMeldungenPanel />
         </TabsContent>
         <TabsContent value="typen" className="mt-0 flex-1 overflow-hidden">
-          <NachrichtentypPanel />
+          <MeldungstypPanel />
         </TabsContent>
       </Tabs>
     </div>

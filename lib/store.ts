@@ -1,6 +1,3 @@
-// Client-side data store for Nachrichtenposten system
-// All data is stored in React state and managed via context
-
 export interface Posten {
   id: string
   name: string
@@ -9,30 +6,30 @@ export interface Posten {
   erstelltAm: string
 }
 
-export interface NachrichtentypKategorie {
+export interface MeldungstypKategorie {
   id: string
   name: string
   maxZiffern: number
 }
 
-export interface Nachrichtentyp {
+export interface Meldungstyp {
   id: string
   name: string
-  kategorien: NachrichtentypKategorie[]
+  kategorien: MeldungstypKategorie[]
   minProStunde: number
 }
 
-export interface NachrichtKategorieWert {
+export interface MeldungKategorieWert {
   kategorieId: string
   kategorieName: string
   wert: string
 }
 
-export interface Nachricht {
+export interface Meldung {
   id: string
   postenId: string
-  nachrichtentypId: string
-  werte: NachrichtKategorieWert[]
+  meldungstypId: string
+  werte: MeldungKategorieWert[]
   kommentar: string
   erstelltAm: string
 }
@@ -66,7 +63,7 @@ export const SAMPLE_POSTEN: Posten[] = [
   },
 ]
 
-export const SAMPLE_NACHRICHTENTYPEN: Nachrichtentyp[] = [
+export const SAMPLE_MELDUNGSTYPEN: Meldungstyp[] = [
   {
     id: 'nt1',
     name: 'TER0',
@@ -88,11 +85,11 @@ export const SAMPLE_NACHRICHTENTYPEN: Nachrichtentyp[] = [
   },
 ]
 
-export const SAMPLE_NACHRICHTEN: Nachricht[] = [
+export const SAMPLE_MELDUNGEN: Meldung[] = [
   {
     id: 'n1',
     postenId: 'p1',
-    nachrichtentypId: 'nt1',
+    meldungstypId: 'nt1',
     werte: [
       { kategorieId: 'k1', kategorieName: 'Effeto', wert: '1' },
       { kategorieId: 'k2', kategorieName: 'Zeit', wert: '1200' },
@@ -103,7 +100,7 @@ export const SAMPLE_NACHRICHTEN: Nachricht[] = [
   {
     id: 'n2',
     postenId: 'p2',
-    nachrichtentypId: 'nt2',
+    meldungstypId: 'nt2',
     werte: [
       { kategorieId: 'k3', kategorieName: 'Wind', wert: '120' },
       { kategorieId: 'k4', kategorieName: 'Sicht', wert: '5000' },
@@ -115,7 +112,7 @@ export const SAMPLE_NACHRICHTEN: Nachricht[] = [
   {
     id: 'n3',
     postenId: 'p1',
-    nachrichtentypId: 'nt1',
+    meldungstypId: 'nt1',
     werte: [
       { kategorieId: 'k1', kategorieName: 'Effeto', wert: '3' },
       { kategorieId: 'k2', kategorieName: 'Zeit', wert: '1415' },

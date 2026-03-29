@@ -4,18 +4,18 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useData } from '@/lib/data-context'
-import type { Posten, Nachricht } from '@/lib/store'
+import type { Posten, Meldung } from '@/lib/store'
 
-function getMessagesLastHourByType(
+function getMeldungenLastHourByTyp(
   postenId: string,
-  nachrichtentypId: string,
-  nachrichten: { postenId: string; nachrichtentypId: string; erstelltAm: string }[]
+  meldungstypId: string,
+  meldungen: { postenId: string; meldungstypId: string; erstelltAm: string }[]
 ) {
   const oneHourAgo = Date.now() - 60 * 60 * 1000
-  return nachrichten.filter(
+  return meldungen.filter(
     (n) =>
       n.postenId === postenId &&
-      n.nachrichtentypId === nachrichtentypId &&
+      n.meldungstypId === meldungstypId &&
       new Date(n.erstelltAm).getTime() > oneHourAgo
   ).length
 }
@@ -61,8 +61,8 @@ export function ZentraleMap() {
   const markersRef = useRef<L.Marker[]>([])
   const {
     posten,
-    nachrichten,
-    nachrichtentypen,
+    meldungen,
+    meldungstypen,
     selectedPostenId,
     setSelectedPostenId,
   } = useData()
@@ -104,21 +104,21 @@ export function ZentraleMap() {
     markersRef.current = []
 
     // Types with minimum requirements
-    const typenMitMinimum = nachrichtentypen.filter((t) => t.minProStunde > 0)
+    const typenMitMinimum = meldungstypen.filter((t) => t.minProStunde > 0)
 
     posten.forEach((p: Posten) => {
-      const postenNachrichten = nachrichten.filter(
-        (n: Nachricht) => n.postenId === p.id
+      const postenMeldungen = meldungen.filter(
+        (n: Meldung) => n.postenId === p.id
       )
       const isSelected = selectedPostenId === p.id
 
       // Determine status based on per-type minimums
       let status: 'ok' | 'warning' | 'none'
       if (typenMitMinimum.length === 0) {
-        status = postenNachrichten.length > 0 ? 'ok' : 'none'
+        status = postenMeldungen.length > 0 ? 'ok' : 'none'
       } else {
         const allFulfilled = typenMitMinimum.every((typ) => {
-          const count = getMessagesLastHourByType(p.id, typ.id, nachrichten)
+          const count = getMeldungenLastHourByTyp(p.id, typ.id, meldungen)
           return count >= typ.minProStunde
         })
         status = allFulfilled ? 'ok' : 'warning'
@@ -134,7 +134,7 @@ export function ZentraleMap() {
       if (typenMitMinimum.length > 0) {
         statusHtml = typenMitMinimum
           .map((typ) => {
-            const count = getMessagesLastHourByType(p.id, typ.id, nachrichten)
+            const count = getMeldungenLastHourByTyp(p.id, typ.id, meldungen)
             const ok = count >= typ.minProStunde
             const color = ok ? '#333' : '#c44'
             const icon = ok ? '&#10003;' : '&#9888;'
@@ -157,11 +157,11 @@ export function ZentraleMap() {
         popupContent += `<div style="color: #444; font-size: 11px; margin-bottom: 6px;">${p.kommentar}</div>`
       }
 
-      if (postenNachrichten.length > 0) {
-        popupContent += `<div style="border-top: 1px solid #eee; padding-top: 4px; font-size: 11px; color: #666;">Letzte Nachrichten:</div>`
-        postenNachrichten.slice(0, 3).forEach((n: Nachricht) => {
-          const typ = nachrichtentypen.find(
-            (t) => t.id === n.nachrichtentypId
+      if (postenMeldungen.length > 0) {
+        popupContent += `<div style="border-top: 1px solid #eee; padding-top: 4px; font-size: 11px; color: #666;">Letzte Meldungen:</div>`
+        postenMeldungen.slice(0, 3).forEach((n: Meldung) => {
+          const typ = meldungstypen.find(
+            (t) => t.id === n.meldungstypId
           )
           const wertStr = n.werte
             .map((w) => `${w.kategorieName}: ${w.wert}`)
@@ -173,7 +173,7 @@ export function ZentraleMap() {
           </div>`
         })
       } else {
-        popupContent += `<div style="font-size: 11px; color: #999; padding-top: 4px;">Keine Nachrichten</div>`
+        popupContent += `<div style="font-size: 11px; color: #999; padding-top: 4px;">Keine Meldungen</div>`
       }
 
       popupContent += `</div>`
@@ -189,7 +189,7 @@ export function ZentraleMap() {
 
       markersRef.current.push(marker)
     })
-  }, [posten, nachrichten, nachrichtentypen, selectedPostenId, setSelectedPostenId])
+  }, [posten, meldungen, meldungstypen, selectedPostenId, setSelectedPostenId])
 
   return (
     <div className="relative h-full w-full">
