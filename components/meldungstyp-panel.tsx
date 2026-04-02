@@ -3,23 +3,15 @@
 import { useState } from 'react'
 import { useData } from '@/lib/data-context'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Plus } from 'lucide-react'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import { Plus, Pencil, Trash2, Settings2, X } from 'lucide-react'
+  KategorieFormRow,
+  MeldungstypDialog,
+} from '@/components/dialogs/meldungstyp-dialog'
+import { MeldungstypDeleteDialog } from '@/components/dialogs/meldungstyp-delete-dialog'
+import { MeldungstypListItem } from '@/components/meldungstyp-list-item'
 import type { MeldungstypKategorie } from '@/lib/store'
 import { generateId } from '@/lib/store'
-
-interface KategorieFormRow {
-  id: string
-  name: string
-  maxZiffern: string
-}
 
 export function MeldungstypPanel() {
   const {
@@ -143,224 +135,42 @@ export function MeldungstypPanel() {
         ) : (
           <div className="divide-y divide-border">
             {meldungstypen.map((typ) => (
-              <div
+              <MeldungstypListItem
                 key={typ.id}
-                className="group flex items-start gap-2 px-3 py-2"
-              >
-                <Settings2 className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-semibold text-foreground">
-                      {typ.name}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {typ.minProStunde > 0 && (
-                        <span className="border border-border px-1.5 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">
-                          Min {typ.minProStunde}/h
-                        </span>
-                      )}
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {typ.kategorien.length} Kat.
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {typ.kategorien.map((k) => (
-                      <span
-                        key={k.id}
-                        className="inline-block border border-border bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
-                      >
-                        {k.name}
-                        <span className="ml-1 text-foreground">
-                          [{k.maxZiffern}]
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-0.5">
-                  <button
-                    onClick={() => openEdit(typ.id)}
-                    className="p-1.5 text-muted-foreground hover:text-foreground"
-                    aria-label={`${typ.name} bearbeiten`}
-                  >
-                    <Pencil className="size-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirm(typ.id)}
-                    className="p-1.5 text-muted-foreground hover:text-destructive"
-                    aria-label={`${typ.name} loeschen`}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </div>
-              </div>
+                typ={typ}
+                onEdit={openEdit}
+                onDelete={setDeleteConfirm}
+              />
             ))}
           </div>
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="font-mono sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-mono text-sm uppercase tracking-wider">
-              {editingId ? 'Meldungstyp bearbeiten' : 'Neuer Meldungstyp'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-4">
-            <div>
-              <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
-                Typbezeichnung
-              </label>
-              <Input
-                value={typName}
-                onChange={(e) => setTypName(e.target.value)}
-                placeholder="z.B. TER0, METEO..."
-                className="font-mono text-sm"
-              />
-            </div>
+      <MeldungstypDialog
+        open={dialogOpen}
+        editingId={editingId}
+        typName={typName}
+        kategorien={kategorien}
+        minProStunde={minProStunde}
+        onOpenChange={setDialogOpen}
+        onTypNameChange={setTypName}
+        onAddKategorie={addKategorie}
+        onRemoveKategorie={removeKategorie}
+        onUpdateKategorie={updateKategorie}
+        onMinProStundeChange={setMinProStunde}
+        onSave={handleSave}
+      />
 
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <label className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Kategorien
-                </label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={addKategorie}
-                  className="h-6 gap-1 font-mono text-xs"
-                >
-                  <Plus className="size-3" />
-                  Kategorie
-                </Button>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                {kategorien.map((k, idx) => (
-                  <div
-                    key={k.id}
-                    className="flex items-center gap-2 border border-border p-2"
-                  >
-                    <span className="w-5 shrink-0 font-mono text-xs text-muted-foreground">
-                      {idx + 1}.
-                    </span>
-                    <Input
-                      value={k.name}
-                      onChange={(e) =>
-                        updateKategorie(k.id, 'name', e.target.value)
-                      }
-                      placeholder="Kategoriename"
-                      className="flex-1 font-mono text-sm"
-                    />
-                    <div className="flex items-center gap-1">
-                      <label className="text-xs text-muted-foreground">
-                        Max:
-                      </label>
-                      <Input
-                        value={k.maxZiffern}
-                        onChange={(e) =>
-                          updateKategorie(k.id, 'maxZiffern', e.target.value)
-                        }
-                        className="w-14 font-mono text-sm"
-                        type="number"
-                        min={1}
-                        max={10}
-                      />
-                    </div>
-                    {kategorien.length > 1 && (
-                      <button
-                        onClick={() => removeKategorie(k.id)}
-                        className="p-1 text-muted-foreground hover:text-destructive"
-                        aria-label="Kategorie entfernen"
-                      >
-                        <X className="size-3" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Max = Maximale Anzahl Ziffern pro Kategorie
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
-                Min. Meldungen / Stunde
-              </label>
-              <Input
-                value={minProStunde}
-                onChange={(e) =>
-                  setMinProStunde(e.target.value.replace(/\D/g, ''))
-                }
-                placeholder="0"
-                className="w-24 font-mono text-sm"
-                type="number"
-                min="0"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                0 = keine Mindestanforderung
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-              className="font-mono text-xs"
-            >
-              Abbrechen
-            </Button>
-            <Button
-              onClick={handleSave}
-              className="font-mono text-xs"
-              disabled={
-                !typName.trim() ||
-                kategorien.filter((k) => k.name.trim()).length === 0
-              }
-            >
-              {editingId ? 'Speichern' : 'Erstellen'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
+      <MeldungstypDeleteDialog
         open={!!deleteConfirm}
-        onOpenChange={() => setDeleteConfirm(null)}
-      >
-        <DialogContent className="font-mono">
-          <DialogHeader>
-            <DialogTitle className="font-mono text-sm uppercase tracking-wider">
-              Meldungstyp loeschen
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Soll der Meldungstyp{' '}
-            <strong>
-              {meldungstypen.find((t) => t.id === deleteConfirm)?.name}
-            </strong>{' '}
-            wirklich geloescht werden?
-          </p>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteConfirm(null)}
-              className="font-mono text-xs"
-            >
-              Abbrechen
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
-              className="font-mono text-xs"
-            >
-              Loeschen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        meldungstypName={meldungstypen.find((t) => t.id === deleteConfirm)?.name}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteConfirm(null)
+          }
+        }}
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+      />
     </div>
   )
 }

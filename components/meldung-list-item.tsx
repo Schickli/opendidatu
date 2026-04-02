@@ -67,6 +67,7 @@ export function MeldungListItem({
           variant="ghost"
           onClick={() => onDelete(meldung.id)}
           aria-label="Meldung loeschen"
+          className="ml-1"
         >
           <Trash2 />
         </Button>

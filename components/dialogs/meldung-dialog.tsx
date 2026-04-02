@@ -59,13 +59,13 @@ export function MeldungDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="grid max-h-[calc(100vh-2rem)] grid-rows-[auto,minmax(0,1fr),auto] overflow-hidden sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-sm uppercase tracking-wider">
             Neue Meldung
           </DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-3">
+        <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
           <div>
             <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
               Posten
@@ -106,11 +106,11 @@ export function MeldungDialog({
           </div>
 
           {selectedTyp && (
-            <div>
+            <div className="min-h-0">
               <label className="mb-2 block text-xs uppercase tracking-wider text-muted-foreground">
                 Werte
               </label>
-              <div className="flex flex-col gap-2">
+              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
                 {selectedTyp.kategorien.map((k) => (
                   <div
                     key={k.id}
@@ -152,13 +152,19 @@ export function MeldungDialog({
         </div>
         <DialogFooter>
           <Button
+            type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             className="text-xs"
           >
             Abbrechen
           </Button>
-          <Button onClick={onSave} className="text-xs" disabled={!canSave}>
+          <Button
+            type="button"
+            onClick={onSave}
+            className="text-xs"
+            disabled={!canSave}
+          >
             Erfassen
           </Button>
         </DialogFooter>

@@ -12,34 +12,9 @@ import { PostenDeleteDialog } from "@/components/dialogs/posten-delete-dialog";
 import { MeldungDialog } from "@/components/dialogs/meldung-dialog";
 import { MeldungDeleteDialog } from "@/components/dialogs/meldung-delete-dialog";
 import { MeldungListItem } from "@/components/meldung-list-item";
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  ChevronDown,
-  ChevronRight,
-  AlertTriangle,
-  Check,
-} from "lucide-react";
+import { PostenListItem } from "@/components/posten-list-item";
+import { Plus } from "lucide-react";
 import type { MeldungKategorieWert, Posten } from "@/lib/store";
-
-function countMeldungenLastHourByTyp(
-  postenId: string,
-  meldungstypId: string,
-  meldungen: {
-    postenId: string;
-    meldungstypId: string;
-    erstelltAm: string;
-  }[]
-) {
-  const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  return meldungen.filter(
-    (n) =>
-      n.postenId === postenId &&
-      n.meldungstypId === meldungstypId &&
-      new Date(n.erstelltAm).getTime() > oneHourAgo
-  ).length;
-}
 
 function postenToForm(p: Posten): PostenFormData {
   return {
@@ -200,15 +175,6 @@ export function PostenMeldungenPanel() {
     return meldungstypen.find((t) => t.id === id)?.name || "?";
   }
 
-  function getPostenOverallStatus(postenId: string): "ok" | "warning" | "none" {
-    if (typenMitMinimum.length === 0) return "none";
-    const allFulfilled = typenMitMinimum.every((typ) => {
-      const count = countMeldungenLastHourByTyp(postenId, typ.id, meldungen);
-      return count >= typ.minProStunde;
-    });
-    return allFulfilled ? "ok" : "warning";
-  }
-
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
@@ -236,145 +202,25 @@ export function PostenMeldungenPanel() {
         ) : (
           <div className="divide-y divide-border">
             {posten.map((p) => {
-              const overallStatus = getPostenOverallStatus(p.id);
               const isExpanded = expandedPosten.has(p.id);
               const isSelected = selectedPostenId === p.id;
 
               return (
-                <div key={p.id}>
-                  <div
-                    className={`flex items-start gap-2 px-3 py-2 transition-colors hover:bg-secondary ${
-                      isSelected ? "bg-secondary" : ""
-                    }`}
-                  >
-                    <button
-                      onClick={() => toggleExpand(p.id)}
-                      className="mt-0.5 shrink-0 p-0.5"
-                      aria-label={isExpanded ? "Zuklappen" : "Aufklappen"}
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="size-3 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="size-3 text-muted-foreground" />
-                      )}
-                    </button>
-
-                    <button
-                      className="flex min-w-0 flex-1 flex-col items-start text-left"
-                      onClick={() => setSelectedPostenId(isSelected ? null : p.id)}
-                    >
-                      <div className="flex w-full items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-foreground">
-                            {p.name}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {p.coordinates.lat.toFixed(4)}, {" "}
-                        {p.coordinates.lng.toFixed(4)}
-                      </span>
-                    </button>
-
-                    <div className="flex shrink-0 items-center gap-0.5">
-                      {overallStatus === "ok" && (
-                        <Button variant="ghost" size="icon-sm">
-                          <Check />
-                        </Button>
-                      )}
-                      {overallStatus === "warning" && (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-destructive"
-                        >
-                          <AlertTriangle />
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="icon-sm"
-                        onClick={() => openCreateMeldung(p.id)}
-                        aria-label={`Meldung fuer ${p.name} erfassen`}
-                        title="Meldung erfassen"
-                      >
-                        <Plus />
-                      </Button>
-                      <Button
-                        onClick={() => openEditPosten(p)}
-                        variant="outline"
-                        size="icon-sm"
-                        aria-label={`${p.name} bearbeiten`}
-                        title="Bearbeiten"
-                      >
-                        <Pencil />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon-sm"
-                        onClick={() => setDeletePostenConfirm(p.id)}
-                        className="hover:text-destructive"
-                        aria-label={`${p.name} loeschen`}
-                        title="Loeschen"
-                      >
-                        <Trash2 />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="border-t border-dashed border-border bg-secondary/50 px-3 py-2">
-                      {typenMitMinimum.length === 0 ? (
-                        <div className="px-5 py-1 text-xs text-muted-foreground">
-                          Keine Meldungstypen mit Minimum definiert
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-1 pl-5">
-                          <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                            Status letzte Stunde
-                          </div>
-                          {typenMitMinimum.map((typ) => {
-                            const count = countMeldungenLastHourByTyp(
-                              p.id,
-                              typ.id,
-                              meldungen
-                            );
-                            const fulfilled = count >= typ.minProStunde;
-                            return (
-                              <div
-                                key={typ.id}
-                                className="flex items-center justify-between gap-2"
-                              >
-                                <span className="text-xs text-foreground">
-                                  {typ.name}
-                                </span>
-                                <div
-                                  className={`flex items-center gap-1 border px-1.5 py-0.5 text-xs ${
-                                    fulfilled
-                                      ? "border-border text-foreground"
-                                      : "border-destructive/40 text-destructive"
-                                  }`}
-                                >
-                                  {fulfilled ? (
-                                    <Check className="size-3" />
-                                  ) : (
-                                    <AlertTriangle className="size-3" />
-                                  )}
-                                  {count}/{typ.minProStunde}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {p.kommentar && (
-                        <div className="mt-2 border-t border-dashed border-border pl-5 pt-1.5 text-xs text-muted-foreground">
-                          {p.kommentar}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <PostenListItem
+                  key={p.id}
+                  posten={p}
+                  isExpanded={isExpanded}
+                  isSelected={isSelected}
+                  typenMitMinimum={typenMitMinimum}
+                  meldungen={meldungen}
+                  onToggleExpand={toggleExpand}
+                  onToggleSelect={(postenId, selected) =>
+                    setSelectedPostenId(selected ? null : postenId)
+                  }
+                  onCreateMeldung={openCreateMeldung}
+                  onEdit={openEditPosten}
+                  onDelete={setDeletePostenConfirm}
+                />
               );
             })}
           </div>
