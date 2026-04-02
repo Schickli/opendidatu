@@ -1,4 +1,6 @@
-# opendidatu
+# OPENDIDATU
+
+![opendidatu](docs/panel-overview.png)
 
 Tries to be a simple alternative to Didatu, with a focus on ease of use. The main goal is to have something for training purposes until a new full featured application is in place.
 
