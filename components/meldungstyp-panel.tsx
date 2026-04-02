@@ -10,95 +10,97 @@ import {
 } from '@/components/dialogs/meldungstyp-dialog'
 import { MeldungstypDeleteDialog } from '@/components/dialogs/meldungstyp-delete-dialog'
 import { MeldungstypListItem } from '@/components/meldungstyp-list-item'
-import type { MeldungstypKategorie } from '@/lib/store'
+import type { MeldungTypeCategory } from '@/lib/store'
 import { generateId } from '@/lib/store'
 
 export function MeldungstypPanel() {
   const {
-    meldungstypen,
-    addMeldungstyp,
-    updateMeldungstyp,
-    deleteMeldungstyp,
+    messageTypes,
+    addMessageType,
+    updateMessageType,
+    deleteMessageType,
   } = useData()
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [typName, setTypName] = useState('')
-  const [kategorien, setKategorien] = useState<KategorieFormRow[]>([])
-  const [minProStunde, setMinProStunde] = useState('0')
+  const [categories, setCategories] = useState<KategorieFormRow[]>([])
+  const [minPerHour, setMinPerHour] = useState('0')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   function openCreate() {
     setEditingId(null)
     setTypName('')
-    setKategorien([{ id: generateId(), name: '', maxZiffern: '1' }])
-    setMinProStunde('0')
+    setCategories([{ id: generateId(), name: '', maxDigits: '1' }])
+    setMinPerHour('0')
     setDialogOpen(true)
   }
 
   function openEdit(id: string) {
-    const typ = meldungstypen.find((t) => t.id === id)
-    if (!typ) return
+    const type = messageTypes.find((entry) => entry.id === id)
+    if (!type) return
     setEditingId(id)
-    setTypName(typ.name)
-    setKategorien(
-      typ.kategorien.map((k) => ({
-        id: k.id,
-        name: k.name,
-        maxZiffern: String(k.maxZiffern),
+    setTypName(type.name)
+    setCategories(
+      type.categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        maxDigits: String(category.maxDigits),
       }))
     )
-    setMinProStunde(String(typ.minProStunde))
+    setMinPerHour(String(type.minPerHour))
     setDialogOpen(true)
   }
 
   function addKategorie() {
-    setKategorien((prev) => [
+    setCategories((prev) => [
       ...prev,
-      { id: generateId(), name: '', maxZiffern: '1' },
+      { id: generateId(), name: '', maxDigits: '1' },
     ])
   }
 
   function removeKategorie(id: string) {
-    setKategorien((prev) => prev.filter((k) => k.id !== id))
+    setCategories((prev) => prev.filter((category) => category.id !== id))
   }
 
   function updateKategorie(
     id: string,
-    field: 'name' | 'maxZiffern',
+    field: 'name' | 'maxDigits',
     value: string
   ) {
-    setKategorien((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, [field]: value } : k))
+    setCategories((prev) =>
+      prev.map((category) => (category.id === id ? { ...category, [field]: value } : category))
     )
   }
 
   function handleSave() {
     if (!typName.trim()) return
-    const validKategorien = kategorien.filter((k) => k.name.trim())
-    if (validKategorien.length === 0) return
+    const validCategories = categories.filter((category) => category.name.trim())
+    if (validCategories.length === 0) return
 
-    const parsedKategorien: MeldungstypKategorie[] = validKategorien.map(
-      (k) => ({
-        id: k.id,
-        name: k.name.trim(),
-        maxZiffern: Math.max(1, parseInt(k.maxZiffern) || 1),
+    const parsedCategories: MeldungTypeCategory[] = validCategories.map(
+      (category) => ({
+        id: category.id,
+        name: category.name.trim(),
+        maxDigits: Math.max(1, parseInt(category.maxDigits) || 1),
       })
     )
 
-    const parsedMin = parseInt(minProStunde, 10)
+    const parsedMinPerHour = parseInt(minPerHour, 10)
 
     if (editingId) {
-      updateMeldungstyp(editingId, {
+      updateMessageType(editingId, {
         name: typName.trim(),
-        kategorien: parsedKategorien,
-        minProStunde: isNaN(parsedMin) || parsedMin < 0 ? 0 : parsedMin,
+        categories: parsedCategories,
+        minPerHour:
+          isNaN(parsedMinPerHour) || parsedMinPerHour < 0 ? 0 : parsedMinPerHour,
       })
     } else {
-      addMeldungstyp({
+      addMessageType({
         name: typName.trim(),
-        kategorien: parsedKategorien,
-        minProStunde: isNaN(parsedMin) || parsedMin < 0 ? 0 : parsedMin,
+        categories: parsedCategories,
+        minPerHour:
+          isNaN(parsedMinPerHour) || parsedMinPerHour < 0 ? 0 : parsedMinPerHour,
       })
     }
 
@@ -106,7 +108,7 @@ export function MeldungstypPanel() {
   }
 
   function handleDelete(id: string) {
-    deleteMeldungstyp(id)
+    deleteMessageType(id)
     setDeleteConfirm(null)
   }
 
@@ -128,16 +130,16 @@ export function MeldungstypPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {meldungstypen.length === 0 ? (
+        {messageTypes.length === 0 ? (
           <div className="p-4 text-center font-mono text-xs text-muted-foreground">
             Keine Meldungstypen definiert
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {meldungstypen.map((typ) => (
+            {messageTypes.map((type) => (
               <MeldungstypListItem
-                key={typ.id}
-                typ={typ}
+                key={type.id}
+                type={type}
                 onEdit={openEdit}
                 onDelete={setDeleteConfirm}
               />
@@ -150,20 +152,20 @@ export function MeldungstypPanel() {
         open={dialogOpen}
         editingId={editingId}
         typName={typName}
-        kategorien={kategorien}
-        minProStunde={minProStunde}
+        categories={categories}
+        minPerHour={minPerHour}
         onOpenChange={setDialogOpen}
         onTypNameChange={setTypName}
         onAddKategorie={addKategorie}
         onRemoveKategorie={removeKategorie}
         onUpdateKategorie={updateKategorie}
-        onMinProStundeChange={setMinProStunde}
+        onMinPerHourChange={setMinPerHour}
         onSave={handleSave}
       />
 
       <MeldungstypDeleteDialog
         open={!!deleteConfirm}
-        meldungstypName={meldungstypen.find((t) => t.id === deleteConfirm)?.name}
+        meldungstypName={messageTypes.find((type) => type.id === deleteConfirm)?.name}
         onOpenChange={(open) => {
           if (!open) {
             setDeleteConfirm(null)

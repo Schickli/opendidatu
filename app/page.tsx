@@ -3,7 +3,6 @@
 import dynamic from 'next/dynamic'
 import { DataProvider } from '@/lib/data-context'
 import { ZentraleHeader } from '@/components/zentrale-header'
-import { ZentraleSidebar } from '@/components/zentrale-sidebar'
 
 const ZentraleMap = dynamic(
   () => import('@/components/zentrale-map').then((mod) => ({ default: mod.ZentraleMap })),
@@ -12,6 +11,18 @@ const ZentraleMap = dynamic(
     loading: () => (
       <div className="flex h-full w-full items-center justify-center bg-secondary font-mono text-xs text-muted-foreground">
         Karte wird geladen...
+      </div>
+    ),
+  }
+)
+
+const ZentraleSidebar = dynamic(
+  () => import('@/components/zentrale-sidebar').then((mod) => ({ default: mod.ZentraleSidebar })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center border-l border-border bg-background font-mono text-xs text-muted-foreground">
+        Seitenleiste wird geladen...
       </div>
     ),
   }

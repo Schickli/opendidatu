@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { JetBrains_Mono, Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import 'maplibre-gl/dist/maplibre-gl.css'
 import './globals.css'
 
 const _jetbrainsMono = JetBrains_Mono({ subsets: ['latin'] })

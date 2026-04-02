@@ -57,12 +57,9 @@
     "sonner": "^1.7.1",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
-    "leaflet": "^1.9.4",
-    "react-leaflet": "^4.2.1",
+    "maplibre-gl": "^5.10.0",
+    "proj4": "^2.19.10",
     "zod": "^3.24.1"
-  },
-  "overrides": {
-    "@types/leaflet": "^1.9.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.0",
@@ -72,7 +69,6 @@
     "postcss": "^8.5",
     "tailwindcss": "^4.2.0",
     "tw-animate-css": "1.3.3",
-    "@types/leaflet": "^1.9.8",
     "typescript": "5.7.3"
   }
 }

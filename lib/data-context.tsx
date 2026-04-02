@@ -3,34 +3,36 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import type {
   Posten,
-  Meldungstyp,
+  MeldungType,
   Meldung,
-  MeldungKategorieWert,
-  MeldungstypKategorie,
 } from './store'
 import {
   generateId,
   SAMPLE_POSTEN,
-  SAMPLE_MELDUNGSTYPEN,
+  SAMPLE_MELDUNG_TYPES,
   SAMPLE_MELDUNGEN,
 } from './store'
 
 interface DataContextType {
   // Posten
   posten: Posten[]
-  addPosten: (data: Omit<Posten, 'id' | 'erstelltAm'>) => void
-  updatePosten: (id: string, data: Partial<Omit<Posten, 'id' | 'erstelltAm'>>) => void
+  addPosten: (data: Omit<Posten, 'id' | 'createdAt'>) => void
+  updatePosten: (id: string, data: Partial<Omit<Posten, 'id' | 'createdAt'>>) => void
   deletePosten: (id: string) => void
 
-  // Meldungstypen
-  meldungstypen: Meldungstyp[]
-  addMeldungstyp: (data: Omit<Meldungstyp, 'id'>) => void
-  updateMeldungstyp: (id: string, data: Partial<Omit<Meldungstyp, 'id'>>) => void
-  deleteMeldungstyp: (id: string) => void
+  // Message types
+  messageTypes: MeldungType[]
+  addMessageType: (data: Omit<MeldungType, 'id'>) => void
+  updateMessageType: (id: string, data: Partial<Omit<MeldungType, 'id'>>) => void
+  deleteMessageType: (id: string) => void
 
   // Meldungen
   meldungen: Meldung[]
-  addMeldung: (data: Omit<Meldung, 'id' | 'erstelltAm'>) => void
+  addMeldung: (data: Omit<Meldung, 'id' | 'createdAt' | 'updatedAt'>) => void
+  updateMeldung: (
+    id: string,
+    data: Partial<Pick<Meldung, 'postenId' | 'values' | 'comment' | 'isValid'>>
+  ) => void
   deleteMeldung: (id: string) => void
 
   // Selection
@@ -42,24 +44,24 @@ const DataContext = createContext<DataContextType | null>(null)
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [posten, setPosten] = useState<Posten[]>(SAMPLE_POSTEN)
-  const [meldungstypen, setMeldungstypen] = useState<Meldungstyp[]>(
-    SAMPLE_MELDUNGSTYPEN
+  const [messageTypes, setMessageTypes] = useState<MeldungType[]>(
+    SAMPLE_MELDUNG_TYPES
   )
   const [meldungen, setMeldungen] = useState<Meldung[]>(SAMPLE_MELDUNGEN)
   const [selectedPostenId, setSelectedPostenId] = useState<string | null>(null)
 
   const addPosten = useCallback(
-    (data: Omit<Posten, 'id' | 'erstelltAm'>) => {
+    (data: Omit<Posten, 'id' | 'createdAt'>) => {
       setPosten((prev) => [
         ...prev,
-        { ...data, id: generateId(), erstelltAm: new Date().toISOString() },
+        { ...data, id: generateId(), createdAt: new Date().toISOString() },
       ])
     },
     []
   )
 
   const updatePosten = useCallback(
-    (id: string, data: Partial<Omit<Posten, 'id' | 'erstelltAm'>>) => {
+    (id: string, data: Partial<Omit<Posten, 'id' | 'createdAt'>>) => {
       setPosten((prev) =>
         prev.map((p) => (p.id === id ? { ...p, ...data } : p))
       )
@@ -71,37 +73,59 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setPosten((prev) => prev.filter((p) => p.id !== id))
   }, [])
 
-  const addMeldungstyp = useCallback(
-    (data: Omit<Meldungstyp, 'id'>) => {
+  const addMessageType = useCallback(
+    (data: Omit<MeldungType, 'id'>) => {
       const id = generateId()
-      const kategorien = data.kategorien.map((k) => ({
-        ...k,
-        id: k.id || generateId(),
+      const categories = data.categories.map((category) => ({
+        ...category,
+        id: category.id || generateId(),
       }))
-      setMeldungstypen((prev) => [...prev, { ...data, id, kategorien }])
+      setMessageTypes((prev) => [...prev, { ...data, id, categories }])
     },
     []
   )
 
-  const updateMeldungstyp = useCallback(
-    (id: string, data: Partial<Omit<Meldungstyp, 'id'>>) => {
-      setMeldungstypen((prev) =>
+  const updateMessageType = useCallback(
+    (id: string, data: Partial<Omit<MeldungType, 'id'>>) => {
+      setMessageTypes((prev) =>
         prev.map((t) => (t.id === id ? { ...t, ...data } : t))
       )
     },
     []
   )
 
-  const deleteMeldungstyp = useCallback((id: string) => {
-    setMeldungstypen((prev) => prev.filter((t) => t.id !== id))
+  const deleteMessageType = useCallback((id: string) => {
+    setMessageTypes((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
   const addMeldung = useCallback(
-    (data: Omit<Meldung, 'id' | 'erstelltAm'>) => {
+    (data: Omit<Meldung, 'id' | 'createdAt' | 'updatedAt'>) => {
+      const now = new Date().toISOString()
+
       setMeldungen((prev) => [
-        { ...data, id: generateId(), erstelltAm: new Date().toISOString() },
+        { ...data, id: generateId(), createdAt: now, updatedAt: now },
         ...prev,
       ])
+    },
+    []
+  )
+
+  const updateMeldung = useCallback(
+    (
+      id: string,
+      data: Partial<Pick<Meldung, 'postenId' | 'values' | 'comment' | 'isValid'>>
+    ) => {
+      setMeldungen((prev) =>
+        prev.map((meldung) =>
+          meldung.id === id
+            ? {
+                ...meldung,
+                ...data,
+                updatedAt: new Date().toISOString(),
+              }
+            : meldung
+        )
+      )
     },
     []
   )
@@ -117,12 +141,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addPosten,
         updatePosten,
         deletePosten,
-        meldungstypen,
-        addMeldungstyp,
-        updateMeldungstyp,
-        deleteMeldungstyp,
+        messageTypes,
+        addMessageType,
+        updateMessageType,
+        deleteMessageType,
         meldungen,
         addMeldung,
+        updateMeldung,
         deleteMeldung,
         selectedPostenId,
         setSelectedPostenId,

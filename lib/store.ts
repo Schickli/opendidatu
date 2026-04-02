@@ -1,37 +1,41 @@
+import type { SwissCoordinates } from './coordinates'
+
 export interface Posten {
   id: string
   name: string
-  coordinates: { lat: number; lng: number }
-  kommentar: string
-  erstelltAm: string
+  coordinates: SwissCoordinates
+  comment: string
+  createdAt: string
 }
 
-export interface MeldungstypKategorie {
+export interface MeldungTypeCategory {
   id: string
   name: string
-  maxZiffern: number
+  maxDigits: number
 }
 
-export interface Meldungstyp {
+export interface MeldungType {
   id: string
   name: string
-  kategorien: MeldungstypKategorie[]
-  minProStunde: number
+  categories: MeldungTypeCategory[]
+  minPerHour: number
 }
 
-export interface MeldungKategorieWert {
-  kategorieId: string
-  kategorieName: string
-  wert: string
+export interface MeldungValue {
+  categoryId: string
+  categoryName: string
+  value: string
 }
 
 export interface Meldung {
   id: string
   postenId: string
-  meldungstypId: string
-  werte: MeldungKategorieWert[]
-  kommentar: string
-  erstelltAm: string
+  typeId: string
+  values: MeldungValue[]
+  comment: string
+  createdAt: string
+  updatedAt: string
+  isValid: boolean
 }
 
 export function generateId(): string {
@@ -42,183 +46,187 @@ function isoMinutesAgo(minutesAgo: number): string {
   return new Date(Date.now() - minutesAgo * 60 * 1000).toISOString()
 }
 
-function buildNumericValue(maxZiffern: number, seed: number): string {
+function buildNumericValue(maxDigits: number, seed: number): string {
   const raw = String((seed + 11) * 137)
-  return raw.slice(-maxZiffern).padStart(maxZiffern, '0')
+  return raw.slice(-maxDigits).padStart(maxDigits, '0')
 }
 
 export const SAMPLE_POSTEN: Posten[] = [
   {
     id: 'p1',
     name: 'P Alpha',
-    coordinates: { lat: 46.95, lng: 7.45 },
-    kommentar: 'Kurzer Name, hohe Aktivitaet, sollte alle Minima sauber erfuellen.',
-    erstelltAm: isoMinutesAgo(720),
+    coordinates: { easting: 2600865, northing: 1199880 },
+    comment: 'Kurzer Name, hohe Aktivitaet, sollte alle Minima sauber erfuellen.',
+    createdAt: isoMinutesAgo(720),
   },
   {
     id: 'p2',
     name: 'Langstreckenbeobachtungsposten Bravo-Suedhang',
-    coordinates: { lat: 46.93, lng: 7.48 },
-    kommentar: 'Langer Name, teilweise aktiv, einige Mindestwerte werden absichtlich verfehlt.',
-    erstelltAm: isoMinutesAgo(680),
+    coordinates: { easting: 2603150, northing: 1197657 },
+    comment: 'Langer Name, teilweise aktiv, einige Mindestwerte werden absichtlich verfehlt.',
+    createdAt: isoMinutesAgo(680),
   },
   {
     id: 'p3',
     name: 'C3',
-    coordinates: { lat: 46.96, lng: 7.42 },
-    kommentar: 'Kurzer Name, einzelne Typen fehlen in der letzten Stunde komplett.',
-    erstelltAm: isoMinutesAgo(640),
+    coordinates: { easting: 2598582, northing: 1200992 },
+    comment: 'Kurzer Name, einzelne Typen fehlen in der letzten Stunde komplett.',
+    createdAt: isoMinutesAgo(640),
   },
   {
     id: 'p4',
     name: 'Vorgelagerter Beobachtungspunkt Delta-Westflanke',
-    coordinates: { lat: 46.9721, lng: 7.4012 },
-    kommentar: 'Viele aeltere Meldungen, aber keine aktuelle Erfuellung der Mindestwerte.',
-    erstelltAm: isoMinutesAgo(600),
+    coordinates: { easting: 2597152, northing: 1202337 },
+    comment: 'Viele aeltere Meldungen, aber keine aktuelle Erfuellung der Mindestwerte.',
+    createdAt: isoMinutesAgo(600),
   },
   {
     id: 'p5',
     name: 'E',
-    coordinates: { lat: 46.9444, lng: 7.4622 },
-    kommentar: 'Erfuellt mehrere Mindestwerte exakt auf der Grenze.',
-    erstelltAm: isoMinutesAgo(560),
+    coordinates: { easting: 2601794, northing: 1199257 },
+    comment: 'Erfuellt mehrere Mindestwerte exakt auf der Grenze.',
+    createdAt: isoMinutesAgo(560),
   },
   {
     id: 'p6',
     name: 'Posten Foxtrot Innenhof',
-    coordinates: { lat: 46.9188, lng: 7.4951 },
-    kommentar: 'Niedrige Aktivitaet und hauptsaechlich Meldungen ohne Minimum.',
-    erstelltAm: isoMinutesAgo(520),
+    coordinates: { easting: 2604301, northing: 1196413 },
+    comment: 'Niedrige Aktivitaet und hauptsaechlich Meldungen ohne Minimum.',
+    createdAt: isoMinutesAgo(520),
   },
   {
     id: 'p7',
     name: 'G',
-    coordinates: { lat: 46.9872, lng: 7.4389 },
-    kommentar: 'Sehr viele Wetter-Meldungen, andere Pflicht-Typen fehlen.',
-    erstelltAm: isoMinutesAgo(480),
+    coordinates: { easting: 2600020, northing: 1204015 },
+    comment: 'Sehr viele Wetter-Meldungen, andere Pflicht-Typen fehlen.',
+    createdAt: isoMinutesAgo(480),
   },
   {
     id: 'p8',
     name: 'Ausgedehnter Erfassungssektor Hotel-Ost-Nord mit Reserve',
-    coordinates: { lat: 46.9281, lng: 7.5214 },
-    kommentar: 'Hohe Last fuer Listen, Dialoge und Mindestpruefungen.',
-    erstelltAm: isoMinutesAgo(440),
+    coordinates: { easting: 2606303, northing: 1197448 },
+    comment: 'Hohe Last fuer Listen, Dialoge und Mindestpruefungen.',
+    createdAt: isoMinutesAgo(440),
   },
 ]
 
-export const SAMPLE_MELDUNGSTYPEN: Meldungstyp[] = [
+export const SAMPLE_MELDUNG_TYPES: MeldungType[] = [
   {
     id: 'nt1',
     name: 'TER0',
-    kategorien: [
-      { id: 'k1', name: 'Eff', maxZiffern: 1 },
-      { id: 'k2', name: 'Zeit', maxZiffern: 4 },
+    categories: [
+      { id: 'k1', name: 'Eff', maxDigits: 1 },
+      { id: 'k2', name: 'Zeit', maxDigits: 4 },
     ],
-    minProStunde: 1,
+    minPerHour: 1,
   },
   {
     id: 'nt2',
     name: 'METEO-LANG',
-    kategorien: [
-      { id: 'k3', name: 'Wind', maxZiffern: 3 },
-      { id: 'k4', name: 'Sichtweite', maxZiffern: 4 },
-      { id: 'k5', name: 'Temperatur', maxZiffern: 2 },
-      { id: 'k6', name: 'Bewoelkung', maxZiffern: 2 },
-      { id: 'k7', name: 'NiederschlagsartLang', maxZiffern: 2 },
+    categories: [
+      { id: 'k3', name: 'Wind', maxDigits: 3 },
+      { id: 'k4', name: 'Sichtweite', maxDigits: 4 },
+      { id: 'k5', name: 'Temperatur', maxDigits: 2 },
+      { id: 'k6', name: 'Bewoelkung', maxDigits: 2 },
+      { id: 'k7', name: 'NiederschlagsartLang', maxDigits: 2 },
     ],
-    minProStunde: 2,
+    minPerHour: 2,
   },
   {
     id: 'nt3',
     name: 'LAGEBEURTEILUNG',
-    kategorien: [
-      { id: 'k8', name: 'Abschnitt', maxZiffern: 2 },
-      { id: 'k9', name: 'Beobachtungsintensitaet', maxZiffern: 1 },
-      { id: 'k10', name: 'Kontaktzeit', maxZiffern: 4 },
-      { id: 'k11', name: 'Raumtiefe', maxZiffern: 2 },
-      { id: 'k12', name: 'Objektklasse', maxZiffern: 2 },
-      { id: 'k13', name: 'Zusatz', maxZiffern: 3 },
+    categories: [
+      { id: 'k8', name: 'Abschnitt', maxDigits: 2 },
+      { id: 'k9', name: 'Beobachtungsintensitaet', maxDigits: 1 },
+      { id: 'k10', name: 'Kontaktzeit', maxDigits: 4 },
+      { id: 'k11', name: 'Raumtiefe', maxDigits: 2 },
+      { id: 'k12', name: 'Objektklasse', maxDigits: 2 },
+      { id: 'k13', name: 'Zusatz', maxDigits: 3 },
     ],
-    minProStunde: 3,
+    minPerHour: 3,
   },
   {
     id: 'nt4',
     name: 'Q',
-    kategorien: [{ id: 'k14', name: 'Q', maxZiffern: 1 }],
-    minProStunde: 0,
+    categories: [{ id: 'k14', name: 'Q', maxDigits: 1 }],
+    minPerHour: 0,
   },
   {
     id: 'nt5',
     name: 'BEOBABSCHNITT-DETAIL',
-    kategorien: [
-      { id: 'k15', name: 'Untersektor', maxZiffern: 2 },
-      { id: 'k16', name: 'Prioritaet', maxZiffern: 1 },
-      { id: 'k17', name: 'Wirkraum', maxZiffern: 2 },
-      { id: 'k18', name: 'Eigenlage', maxZiffern: 2 },
-      { id: 'k19', name: 'Mittelansatz', maxZiffern: 2 },
-      { id: 'k20', name: 'Auffaelligkeitsgrad', maxZiffern: 1 },
-      { id: 'k21', name: 'NachfuehrungscodeExtremLang', maxZiffern: 3 },
+    categories: [
+      { id: 'k15', name: 'Untersektor', maxDigits: 2 },
+      { id: 'k16', name: 'Prioritaet', maxDigits: 1 },
+      { id: 'k17', name: 'Wirkraum', maxDigits: 2 },
+      { id: 'k18', name: 'Eigenlage', maxDigits: 2 },
+      { id: 'k19', name: 'Mittelansatz', maxDigits: 2 },
+      { id: 'k20', name: 'Auffaelligkeitsgrad', maxDigits: 1 },
+      { id: 'k21', name: 'NachfuehrungscodeExtremLang', maxDigits: 3 },
     ],
-    minProStunde: 4,
+    minPerHour: 4,
   },
   {
     id: 'nt6',
     name: 'NAH',
-    kategorien: [
-      { id: 'k22', name: 'N', maxZiffern: 1 },
-      { id: 'k23', name: 'Kurzreferenz', maxZiffern: 2 },
+    categories: [
+      { id: 'k22', name: 'N', maxDigits: 1 },
+      { id: 'k23', name: 'Kurzreferenz', maxDigits: 2 },
     ],
-    minProStunde: 0,
+    minPerHour: 0,
   },
 ]
 
-const meldungstypById = Object.fromEntries(
-  SAMPLE_MELDUNGSTYPEN.map((meldungstyp) => [meldungstyp.id, meldungstyp])
-) as Record<string, Meldungstyp>
+const meldungTypeById = Object.fromEntries(
+  SAMPLE_MELDUNG_TYPES.map((meldungType) => [meldungType.id, meldungType])
+) as Record<string, MeldungType>
 
-function createWerteForTyp(meldungstypId: string, seed: number): MeldungKategorieWert[] {
-  const meldungstyp = meldungstypById[meldungstypId]
+function createValuesForType(typeId: string, seed: number): MeldungValue[] {
+  const meldungType = meldungTypeById[typeId]
 
-  return meldungstyp.kategorien.map((kategorie, index) => ({
-    kategorieId: kategorie.id,
-    kategorieName: kategorie.name,
-    wert: buildNumericValue(kategorie.maxZiffern, seed + index),
+  return meldungType.categories.map((category, index) => ({
+    categoryId: category.id,
+    categoryName: category.name,
+    value: buildNumericValue(category.maxDigits, seed + index),
   }))
 }
 
 function createMeldung(
   id: string,
   postenId: string,
-  meldungstypId: string,
+  typeId: string,
   minutesAgo: number,
   seed: number,
-  kommentar = ''
+  comment = ''
 ): Meldung {
+  const createdAt = isoMinutesAgo(minutesAgo)
+
   return {
     id,
     postenId,
-    meldungstypId,
-    werte: createWerteForTyp(meldungstypId, seed),
-    kommentar,
-    erstelltAm: isoMinutesAgo(minutesAgo),
+    typeId,
+    values: createValuesForType(typeId, seed),
+    comment,
+    createdAt,
+    updatedAt: createdAt,
+    isValid: seed % 2 == 0 ? true : false,
   }
 }
 
 function createSeries(
   postenId: string,
-  meldungstypId: string,
+  typeId: string,
   minuteOffsets: number[],
   startSeed: number,
-  kommentarPrefix: string
+  commentPrefix: string
 ): Meldung[] {
   return minuteOffsets.map((minutesAgo, index) =>
     createMeldung(
-      `${postenId}-${meldungstypId}-${index + 1}`,
+      `${postenId}-${typeId}-${index + 1}`,
       postenId,
-      meldungstypId,
+      typeId,
       minutesAgo,
       startSeed + index,
-      index % 2 === 0 ? `${kommentarPrefix} ${index + 1}` : ''
+      index % 2 === 0 ? `${commentPrefix} ${index + 1}` : ''
     )
   )
 }
@@ -268,5 +276,5 @@ export const SAMPLE_MELDUNGEN: Meldung[] = [
   ...createSeries('p8', 'nt6', [11, 59], 350, 'Kurze Nahmeldung'),
 ].sort(
   (left, right) =>
-    new Date(right.erstelltAm).getTime() - new Date(left.erstelltAm).getTime()
+    new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
 )

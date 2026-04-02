@@ -1,6 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  parseSwissCoordinateInput,
+  toSwissCoordinateInput,
+} from "@/lib/coordinates";
 import { useData } from "@/lib/data-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,14 +18,13 @@ import { MeldungDeleteDialog } from "@/components/dialogs/meldung-delete-dialog"
 import { MeldungListItem } from "@/components/meldung-list-item";
 import { PostenListItem } from "@/components/posten-list-item";
 import { Plus } from "lucide-react";
-import type { MeldungKategorieWert, Posten } from "@/lib/store";
+import type { Meldung, MeldungValue, Posten } from "@/lib/store";
 
 function postenToForm(p: Posten): PostenFormData {
   return {
     name: p.name,
-    lat: String(p.coordinates.lat),
-    lng: String(p.coordinates.lng),
-    kommentar: p.kommentar,
+    ...toSwissCoordinateInput(p.coordinates),
+    comment: p.comment,
   };
 }
 
@@ -33,8 +36,9 @@ export function PostenMeldungenPanel() {
     deletePosten,
     meldungen,
     addMeldung,
+    updateMeldung,
     deleteMeldung,
-    meldungstypen,
+    messageTypes,
     selectedPostenId,
     setSelectedPostenId,
   } = useData();
@@ -47,19 +51,21 @@ export function PostenMeldungenPanel() {
   );
 
   const [meldungDialogOpen, setMeldungDialogOpen] = useState(false);
-  const [selectedTypId, setSelectedTypId] = useState("");
+  const [editingMeldungId, setEditingMeldungId] = useState<string | null>(null);
+  const [selectedTypeId, setSelectedTypeId] = useState("");
   const [selectedPostenForMeldung, setSelectedPostenForMeldung] = useState("");
-  const [werte, setWerte] = useState<Record<string, string>>({});
-  const [meldungKommentar, setMeldungKommentar] = useState("");
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [meldungComment, setMeldungComment] = useState("");
+  const [meldungIsValid, setMeldungIsValid] = useState(true);
   const [deleteMeldungConfirm, setDeleteMeldungConfirm] = useState<string | null>(
     null
   );
 
   const [expandedPosten, setExpandedPosten] = useState<Set<string>>(new Set());
 
-  const typenMitMinimum = useMemo(
-    () => meldungstypen.filter((t) => t.minProStunde > 0),
-    [meldungstypen]
+  const typesWithMinimum = useMemo(
+    () => messageTypes.filter((type) => type.minPerHour > 0),
+    [messageTypes]
   );
 
   const filteredMeldungen = useMemo(() => {
@@ -67,7 +73,41 @@ export function PostenMeldungenPanel() {
     return meldungen.filter((n) => n.postenId === selectedPostenId);
   }, [meldungen, selectedPostenId]);
 
-  const selectedTyp = meldungstypen.find((t) => t.id === selectedTypId);
+  useEffect(() => {
+    if (!selectedPostenId) return;
+
+    setExpandedPosten((prev) => {
+      if (prev.has(selectedPostenId)) {
+        return prev;
+      }
+
+      const next = new Set(prev);
+      next.add(selectedPostenId);
+      return next;
+    });
+  }, [selectedPostenId]);
+
+  const selectedType = messageTypes.find((type) => type.id === selectedTypeId);
+  const editingMeldung = useMemo(
+    () => meldungen.find((meldung) => meldung.id === editingMeldungId) ?? null,
+    [editingMeldungId, meldungen]
+  );
+
+  function resetMeldungForm() {
+    setEditingMeldungId(null);
+    setSelectedTypeId("");
+    setSelectedPostenForMeldung("");
+    setValues({});
+    setMeldungComment("");
+    setMeldungIsValid(true);
+  }
+
+  function handleMeldungDialogOpenChange(open: boolean) {
+    setMeldungDialogOpen(open);
+    if (!open) {
+      resetMeldungForm();
+    }
+  }
 
   function openCreatePosten() {
     setEditingPostenId(null);
@@ -82,14 +122,16 @@ export function PostenMeldungenPanel() {
   }
 
   function handleSavePosten() {
-    const lat = parseFloat(postenForm.lat);
-    const lng = parseFloat(postenForm.lng);
-    if (!postenForm.name.trim() || isNaN(lat) || isNaN(lng)) return;
+    const coordinates = parseSwissCoordinateInput({
+      easting: postenForm.easting,
+      northing: postenForm.northing,
+    });
+    if (!postenForm.name.trim() || !coordinates) return;
 
     const data = {
       name: postenForm.name.trim(),
-      coordinates: { lat, lng },
-      kommentar: postenForm.kommentar.trim(),
+      coordinates,
+      comment: postenForm.comment.trim(),
     };
 
     if (editingPostenId) {
@@ -108,50 +150,76 @@ export function PostenMeldungenPanel() {
   }
 
   function openCreateMeldung(postenId?: string) {
-    setSelectedTypId("");
+    setEditingMeldungId(null);
+    setSelectedTypeId("");
     setSelectedPostenForMeldung(postenId || selectedPostenId || "");
-    setWerte({});
-    setMeldungKommentar("");
+    setValues({});
+    setMeldungComment("");
+    setMeldungIsValid(true);
     setMeldungDialogOpen(true);
   }
 
-  function handleTypChange(typId: string) {
-    setSelectedTypId(typId);
-    setWerte({});
+  function openEditMeldung(meldung: Meldung) {
+    setEditingMeldungId(meldung.id);
+    setSelectedTypeId(meldung.typeId);
+    setSelectedPostenForMeldung(meldung.postenId);
+    setValues(
+      Object.fromEntries(meldung.values.map((valueItem) => [valueItem.categoryId, valueItem.value]))
+    );
+    setMeldungComment(meldung.comment);
+    setMeldungIsValid(meldung.isValid);
+    setMeldungDialogOpen(true);
   }
 
-  function handleWertChange(
-    kategorieId: string,
+  function handleTypeChange(typeId: string) {
+    if (editingMeldungId) return;
+    setSelectedTypeId(typeId);
+    setValues({});
+  }
+
+  function handleValueChange(
+    categoryId: string,
     value: string,
-    maxZiffern: number
+    maxDigits: number
   ) {
-    const cleaned = value.replace(/\D/g, "").slice(0, maxZiffern);
-    setWerte((prev) => ({ ...prev, [kategorieId]: cleaned }));
+    const cleaned = value.replace(/\D/g, "").slice(0, maxDigits);
+    setValues((prev) => ({ ...prev, [categoryId]: cleaned }));
   }
 
   function handleSaveMeldung() {
-    if (!selectedTypId || !selectedPostenForMeldung || !selectedTyp) return;
-    const allFilled = selectedTyp.kategorien.every(
-      (k) => werte[k.id] && werte[k.id].length > 0
+    if (!selectedTypeId || !selectedPostenForMeldung || !selectedType) return;
+    const allFilled = selectedType.categories.every(
+      (category) => values[category.id] && values[category.id].length > 0
     );
     if (!allFilled) return;
 
-    const meldungWerte: MeldungKategorieWert[] = selectedTyp.kategorien.map(
-      (k) => ({
-        kategorieId: k.id,
-        kategorieName: k.name,
-        wert: werte[k.id] || "",
+    const meldungValues: MeldungValue[] = selectedType.categories.map(
+      (category) => ({
+        categoryId: category.id,
+        categoryName: category.name,
+        value: values[category.id] || "",
       })
     );
 
-    addMeldung({
-      postenId: selectedPostenForMeldung,
-      meldungstypId: selectedTypId,
-      werte: meldungWerte,
-      kommentar: meldungKommentar.trim(),
-    });
+    if (editingMeldungId) {
+      updateMeldung(editingMeldungId, {
+        postenId: selectedPostenForMeldung,
+        values: meldungValues,
+        comment: meldungComment.trim(),
+        isValid: meldungIsValid,
+      });
+    } else {
+      addMeldung({
+        postenId: selectedPostenForMeldung,
+        typeId: selectedTypeId,
+        values: meldungValues,
+        comment: meldungComment.trim(),
+        isValid: meldungIsValid,
+      });
+    }
 
     setMeldungDialogOpen(false);
+    resetMeldungForm();
   }
 
   function handleDeleteMeldung(id: string) {
@@ -172,7 +240,7 @@ export function PostenMeldungenPanel() {
   }
 
   function getTypName(id: string) {
-    return meldungstypen.find((t) => t.id === id)?.name || "?";
+    return messageTypes.find((type) => type.id === id)?.name || "?";
   }
 
   return (
@@ -211,7 +279,7 @@ export function PostenMeldungenPanel() {
                   posten={p}
                   isExpanded={isExpanded}
                   isSelected={isSelected}
-                  typenMitMinimum={typenMitMinimum}
+                  typesWithMinimum={typesWithMinimum}
                   meldungen={meldungen}
                   onToggleExpand={toggleExpand}
                   onToggleSelect={(postenId, selected) =>
@@ -250,9 +318,10 @@ export function PostenMeldungenPanel() {
                   <MeldungListItem
                     key={n.id}
                     meldung={n}
-                    typName={getTypName(n.meldungstypId)}
+                    typName={getTypName(n.typeId)}
                     postenName={posten.find((p) => p.id === n.postenId)?.name || "?"}
                     showPostenName={!selectedPostenId}
+                    onEdit={() => openEditMeldung(n)}
                     onDelete={setDeleteMeldungConfirm}
                   />
                 );
@@ -286,17 +355,22 @@ export function PostenMeldungenPanel() {
 
       <MeldungDialog
         open={meldungDialogOpen}
+        mode={editingMeldungId ? "edit" : "create"}
         posten={posten}
-        meldungstypen={meldungstypen}
+        messageTypes={messageTypes}
         selectedPostenForMeldung={selectedPostenForMeldung}
-        selectedTypId={selectedTypId}
-        werte={werte}
-        meldungKommentar={meldungKommentar}
-        onOpenChange={setMeldungDialogOpen}
+        selectedTypeId={selectedTypeId}
+        values={values}
+        meldungComment={meldungComment}
+        meldungIsValid={meldungIsValid}
+        createdAt={editingMeldung?.createdAt}
+        updatedAt={editingMeldung?.updatedAt}
+        onOpenChange={handleMeldungDialogOpenChange}
         onPostenChange={setSelectedPostenForMeldung}
-        onTypChange={handleTypChange}
-        onWertChange={handleWertChange}
-        onKommentarChange={setMeldungKommentar}
+        onTypeChange={handleTypeChange}
+        onValueChange={handleValueChange}
+        onCommentChange={setMeldungComment}
+        onValidityChange={setMeldungIsValid}
         onSave={handleSaveMeldung}
       />
 

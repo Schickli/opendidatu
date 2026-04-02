@@ -1,28 +1,42 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import { useEffect, useRef, useState } from 'react'
+import {
+  LngLatBounds,
+  Map as MapLibreMap,
+  Marker,
+  NavigationControl,
+  Popup,
+} from 'maplibre-gl'
+import {
+  formatSwissCoordinates,
+  swissToWgs84,
+} from '@/lib/coordinates'
 import { useData } from '@/lib/data-context'
 import type { Posten, Meldung } from '@/lib/store'
 
 function getMeldungenLastHourByTyp(
   postenId: string,
-  meldungstypId: string,
-  meldungen: { postenId: string; meldungstypId: string; erstelltAm: string }[]
+  typeId: string,
+  meldungen: {
+    postenId: string
+    typeId: string
+    createdAt: string
+    isValid: boolean
+  }[]
 ) {
   const oneHourAgo = Date.now() - 60 * 60 * 1000
   return meldungen.filter(
     (n) =>
+      n.isValid &&
       n.postenId === postenId &&
-      n.meldungstypId === meldungstypId &&
-      new Date(n.erstelltAm).getTime() > oneHourAgo
+      n.typeId === typeId &&
+      new Date(n.createdAt).getTime() > oneHourAgo
   ).length
 }
 
 function createPostenIcon(status: 'ok' | 'warning' | 'none', isSelected: boolean) {
   const size = isSelected ? 16 : 12
-  // ok = dark fill, warning = red outline, none = gray
   let bg: string
   let border: string
   if (status === 'warning') {
@@ -36,18 +50,18 @@ function createPostenIcon(status: 'ok' | 'warning' | 'none', isSelected: boolean
     border = isSelected ? '2px solid #000' : '1px solid #888'
   }
 
-  return L.divIcon({
-    className: 'custom-posten-marker',
-    html: `<div style="
-      width: ${size}px;
-      height: ${size}px;
-      background: ${bg};
-      border: ${border};
-      box-sizing: border-box;
-    "></div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  })
+  const element = document.createElement('button')
+  element.type = 'button'
+  element.className = 'custom-posten-marker'
+  element.style.width = `${size}px`
+  element.style.height = `${size}px`
+  element.style.background = bg
+  element.style.border = border
+  element.style.boxSizing = 'border-box'
+  element.style.padding = '0'
+  element.style.cursor = 'pointer'
+
+  return element
 }
 
 function formatTime(iso: string) {
@@ -57,54 +71,73 @@ function formatTime(iso: string) {
 
 export function ZentraleMap() {
   const mapRef = useRef<HTMLDivElement>(null)
-  const leafletMapRef = useRef<L.Map | null>(null)
-  const markersRef = useRef<L.Marker[]>([])
+  const mapInstanceRef = useRef<MapLibreMap | null>(null)
+  const markersRef = useRef<Marker[]>([])
+  const resizeObserverRef = useRef<ResizeObserver | null>(null)
+  const hasFittedInitialBoundsRef = useRef(false)
+  const [mapReady, setMapReady] = useState(false)
   const {
     posten,
     meldungen,
-    meldungstypen,
+    messageTypes,
     selectedPostenId,
     setSelectedPostenId,
   } = useData()
 
-  // Initialize map
   useEffect(() => {
-    if (!mapRef.current || leafletMapRef.current) return
+    if (!mapRef.current || mapInstanceRef.current) return
 
-    const map = L.map(mapRef.current, {
-      center: [46.95, 7.45],
-      zoom: 13,
-      zoomControl: false,
-      attributionControl: false,
+    let cancelled = false
+    const frameId = window.requestAnimationFrame(() => {
+      if (cancelled || !mapRef.current || mapInstanceRef.current) return
+
+      const map = new MapLibreMap({
+        container: mapRef.current,
+        style: 'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json',
+        center: [8.265, 46.786],
+        zoom: 10,
+        attributionControl: {},
+      })
+
+      map.on('load', () => {
+        setMapReady(true)
+      })
+
+      map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right')
+      mapInstanceRef.current = map
+
+      resizeObserverRef.current = new ResizeObserver(() => {
+        map.resize()
+      })
+      resizeObserverRef.current.observe(mapRef.current)
     })
 
-    // Use a grayscale/minimal tile layer
-    L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
-      { maxZoom: 19 }
-    ).addTo(map)
-
-    L.control.zoom({ position: 'bottomright' }).addTo(map)
-
-    leafletMapRef.current = map
-
     return () => {
-      map.remove()
-      leafletMapRef.current = null
+      cancelled = true
+      window.cancelAnimationFrame(frameId)
+      setMapReady(false)
+      resizeObserverRef.current?.disconnect()
+      resizeObserverRef.current = null
+      markersRef.current.forEach((marker) => marker.remove())
+      markersRef.current = []
+      const map = mapInstanceRef.current
+      if (map) {
+        map.remove()
+      }
+      mapInstanceRef.current = null
     }
   }, [])
 
-  // Update markers
   useEffect(() => {
-    const map = leafletMapRef.current
-    if (!map) return
+    const map = mapInstanceRef.current
+    if (!map || !mapReady) return
 
-    // Clear old markers
     markersRef.current.forEach((m) => m.remove())
     markersRef.current = []
 
-    // Types with minimum requirements
-    const typenMitMinimum = meldungstypen.filter((t) => t.minProStunde > 0)
+    const typesWithMinimum = messageTypes.filter((type) => type.minPerHour > 0)
+    const bounds = new LngLatBounds()
+    let hasBounds = false
 
     posten.forEach((p: Posten) => {
       const postenMeldungen = meldungen.filter(
@@ -114,31 +147,31 @@ export function ZentraleMap() {
 
       // Determine status based on per-type minimums
       let status: 'ok' | 'warning' | 'none'
-      if (typenMitMinimum.length === 0) {
+      if (typesWithMinimum.length === 0) {
         status = postenMeldungen.length > 0 ? 'ok' : 'none'
       } else {
-        const allFulfilled = typenMitMinimum.every((typ) => {
-          const count = getMeldungenLastHourByTyp(p.id, typ.id, meldungen)
-          return count >= typ.minProStunde
+        const allFulfilled = typesWithMinimum.every((type) => {
+          const count = getMeldungenLastHourByTyp(p.id, type.id, meldungen)
+          return count >= type.minPerHour
         })
         status = allFulfilled ? 'ok' : 'warning'
       }
 
-      const icon = createPostenIcon(status, isSelected)
-      const marker = L.marker([p.coordinates.lat, p.coordinates.lng], {
-        icon,
-      }).addTo(map)
+      const [lng, lat] = swissToWgs84(p.coordinates)
+      const markerElement = createPostenIcon(status, isSelected)
 
-      // Build popup -- show per-type status breakdown
+      bounds.extend([lng, lat])
+      hasBounds = true
+
       let statusHtml = ''
-      if (typenMitMinimum.length > 0) {
-        statusHtml = typenMitMinimum
-          .map((typ) => {
-            const count = getMeldungenLastHourByTyp(p.id, typ.id, meldungen)
-            const ok = count >= typ.minProStunde
+      if (typesWithMinimum.length > 0) {
+        statusHtml = typesWithMinimum
+          .map((type) => {
+            const count = getMeldungenLastHourByTyp(p.id, type.id, meldungen)
+            const ok = count >= type.minPerHour
             const color = ok ? '#333' : '#c44'
             const icon = ok ? '&#10003;' : '&#9888;'
-            return `<span style="color: ${color};">${icon} ${typ.name} ${count}/${typ.minProStunde}</span>`
+            return `<span style="color: ${color};">${icon} ${type.name} ${count}/${type.minPerHour}</span>`
           })
           .join(' &nbsp; ')
       }
@@ -147,29 +180,32 @@ export function ZentraleMap() {
         <div style="font-weight: 700; font-size: 13px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 6px;">
           ${p.name}
         </div>
-        <div style="color: #666; font-size: 11px; margin-bottom: 4px;">${p.coordinates.lat.toFixed(4)}, ${p.coordinates.lng.toFixed(4)}</div>`
+        <div style="color: #666; font-size: 11px; margin-bottom: 4px;">${formatSwissCoordinates(p.coordinates)}</div>`
 
       if (statusHtml) {
         popupContent += `<div style="font-size: 11px; margin-bottom: 6px; display: flex; gap: 8px; flex-wrap: wrap;">${statusHtml}</div>`
       }
 
-      if (p.kommentar) {
-        popupContent += `<div style="color: #444; font-size: 11px; margin-bottom: 6px;">${p.kommentar}</div>`
+      if (p.comment) {
+        popupContent += `<div style="color: #444; font-size: 11px; margin-bottom: 6px;">${p.comment}</div>`
       }
 
       if (postenMeldungen.length > 0) {
         popupContent += `<div style="border-top: 1px solid #eee; padding-top: 4px; font-size: 11px; color: #666;">Letzte Meldungen:</div>`
         postenMeldungen.slice(0, 3).forEach((n: Meldung) => {
-          const typ = meldungstypen.find(
-            (t) => t.id === n.meldungstypId
+          const type = messageTypes.find(
+            (entry) => entry.id === n.typeId
           )
-          const wertStr = n.werte
-            .map((w) => `${w.kategorieName}: ${w.wert}`)
+          const valueText = n.values
+            .map((valueItem) => `${valueItem.categoryName}: ${valueItem.value}`)
             .join(' | ')
+          const validLabel = n.isValid
+            ? ''
+            : ' <span style="color: #c44; font-weight: 600;">ungültig</span>'
           popupContent += `<div style="font-size: 11px; padding: 2px 0; border-bottom: 1px solid #f0f0f0;">
-            <span style="font-weight: 600;">${typ?.name || '?'}</span> 
-            <span style="color: #888;">${formatTime(n.erstelltAm)}</span><br/>
-            <span style="color: #555;">${wertStr}</span>
+            <span style="font-weight: 600;">${type?.name || '?'}</span> 
+            <span style="color: #888;">${formatTime(n.createdAt)}</span>${validLabel}<br/>
+            <span style="color: #555;">${valueText}</span>
           </div>`
         })
       } else {
@@ -178,44 +214,91 @@ export function ZentraleMap() {
 
       popupContent += `</div>`
 
-      marker.bindPopup(popupContent, {
+      const popup = new Popup({
         closeButton: true,
         className: 'custom-popup',
+        maxWidth: '320px',
       })
+        .setHTML(popupContent)
 
-      marker.on('click', () => {
+      const marker = new Marker({
+        element: markerElement,
+        anchor: 'center',
+      })
+        .setLngLat([lng, lat])
+        .setPopup(popup)
+        .addTo(map)
+
+      markerElement.addEventListener('click', () => {
         setSelectedPostenId(p.id)
       })
 
+      if (isSelected) {
+        marker.togglePopup()
+      }
+
       markersRef.current.push(marker)
     })
-  }, [posten, meldungen, meldungstypen, selectedPostenId, setSelectedPostenId])
+
+    if (hasBounds && !hasFittedInitialBoundsRef.current) {
+      hasFittedInitialBoundsRef.current = true
+
+      if (posten.length === 1) {
+        const [lng, lat] = swissToWgs84(posten[0].coordinates)
+        map.jumpTo({ center: [lng, lat], zoom: 13 })
+      } else {
+        map.fitBounds(bounds, {
+          padding: 40,
+          maxZoom: 13,
+          duration: 0,
+        })
+      }
+    }
+  }, [mapReady, posten, meldungen, messageTypes, selectedPostenId, setSelectedPostenId])
 
   return (
     <div className="relative h-full w-full">
       <div ref={mapRef} className="h-full w-full" />
       <style jsx global>{`
-        .custom-popup .leaflet-popup-content-wrapper {
-          border-radius: 0;
+        .maplibregl-canvas {
+          cursor: default;
+        }
+        .custom-popup .maplibregl-popup-content {
           box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
           border: 1px solid #ccc;
-          padding: 0;
+          border-radius: 0;
+          margin: 0;
+          padding: 8px 10px;
         }
-        .custom-popup .leaflet-popup-content {
-          margin: 8px 10px;
+        .custom-popup .maplibregl-popup-tip {
+          border-top-color: #ccc;
         }
-        .custom-popup .leaflet-popup-tip {
-          display: none;
+        .custom-popup .maplibregl-popup-close-button {
+          top: 0;
+          right: 0;
+          width: 28px;
+          height: 28px;
+          font-size: 18px;
+          line-height: 28px;
+          color: #444;
+        }
+        .custom-popup .maplibregl-popup-close-button:hover {
+          background: transparent;
+          color: #000;
         }
         .custom-posten-marker {
-          background: none !important;
-          border: none !important;
+          appearance: none;
+          outline: none;
         }
-        .leaflet-control-zoom {
+        .custom-posten-marker:focus-visible {
+          box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.15);
+        }
+        .maplibregl-ctrl-group {
           border: 1px solid #ccc !important;
           border-radius: 0 !important;
+          box-shadow: none !important;
         }
-        .leaflet-control-zoom a {
+        .maplibregl-ctrl button {
           border-radius: 0 !important;
           border-bottom: 1px solid #ccc !important;
           font-family: monospace !important;

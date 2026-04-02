@@ -2,6 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -17,52 +19,74 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Meldungstyp, Posten } from "@/lib/store";
+import type { MeldungType, Posten } from "@/lib/store";
 
 interface MeldungDialogProps {
   open: boolean;
+  mode: "create" | "edit";
   posten: Posten[];
-  meldungstypen: Meldungstyp[];
+  messageTypes: MeldungType[];
   selectedPostenForMeldung: string;
-  selectedTypId: string;
-  werte: Record<string, string>;
-  meldungKommentar: string;
+  selectedTypeId: string;
+  values: Record<string, string>;
+  meldungComment: string;
+  meldungIsValid: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   onOpenChange: (open: boolean) => void;
   onPostenChange: (postenId: string) => void;
-  onTypChange: (typId: string) => void;
-  onWertChange: (kategorieId: string, value: string, maxZiffern: number) => void;
-  onKommentarChange: (value: string) => void;
+  onTypeChange: (typeId: string) => void;
+  onValueChange: (categoryId: string, value: string, maxDigits: number) => void;
+  onCommentChange: (value: string) => void;
+  onValidityChange: (isValid: boolean) => void;
   onSave: () => void;
+}
+
+function formatDateTime(iso?: string) {
+  if (!iso) return "-";
+
+  return new Date(iso).toLocaleString("de-CH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Zurich",
+  });
 }
 
 export function MeldungDialog({
   open,
+  mode,
   posten,
-  meldungstypen,
+  messageTypes,
   selectedPostenForMeldung,
-  selectedTypId,
-  werte,
-  meldungKommentar,
+  selectedTypeId,
+  values,
+  meldungComment,
+  meldungIsValid,
+  createdAt,
+  updatedAt,
   onOpenChange,
   onPostenChange,
-  onTypChange,
-  onWertChange,
-  onKommentarChange,
+  onTypeChange,
+  onValueChange,
+  onCommentChange,
+  onValidityChange,
   onSave,
 }: MeldungDialogProps) {
-  const selectedTyp = meldungstypen.find((t) => t.id === selectedTypId);
+  const selectedType = messageTypes.find((type) => type.id === selectedTypeId);
   const canSave =
     !!selectedPostenForMeldung &&
-    !!selectedTypId &&
-    !!selectedTyp &&
-    selectedTyp.kategorien.every((k) => werte[k.id] && werte[k.id].length > 0);
+    !!selectedTypeId &&
+    !!selectedType &&
+    selectedType.categories.every(
+      (category) => values[category.id] && values[category.id].length > 0
+    );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid max-h-[calc(100vh-2rem)] grid-rows-[auto,minmax(0,1fr),auto] overflow-hidden sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-sm uppercase tracking-wider">
-            Neue Meldung
+            {mode === "edit" ? "Meldung bearbeiten" : "Neue Meldung"}
           </DialogTitle>
         </DialogHeader>
         <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
@@ -91,46 +115,46 @@ export function MeldungDialog({
             <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
               Meldungstyp
             </label>
-            <Select value={selectedTypId} onValueChange={onTypChange}>
+            <Select value={selectedTypeId} onValueChange={onTypeChange} disabled={mode === "edit"}>
               <SelectTrigger className="text-base">
                 <SelectValue placeholder="Typ waehlen..." />
               </SelectTrigger>
               <SelectContent>
-                {meldungstypen.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
+                {messageTypes.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    {type.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {selectedTyp && (
+          {selectedType && (
             <div className="min-h-0">
               <label className="mb-2 block text-xs uppercase tracking-wider text-muted-foreground">
                 Werte
               </label>
               <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-                {selectedTyp.kategorien.map((k) => (
+                {selectedType.categories.map((category) => (
                   <div
-                    key={k.id}
+                    key={category.id}
                     className="flex items-center gap-2 border border-border p-2"
                   >
                     <span className="w-28 shrink-0 text-xs text-muted-foreground">
-                      {k.name}
+                      {category.name}
                     </span>
                     <Input
-                      value={werte[k.id] || ""}
+                      value={values[category.id] || ""}
                       onChange={(e) =>
-                        onWertChange(k.id, e.target.value, k.maxZiffern)
+                        onValueChange(category.id, e.target.value, category.maxDigits)
                       }
-                      placeholder={"0".repeat(k.maxZiffern)}
+                      placeholder={"0".repeat(category.maxDigits)}
                       className="text-base"
                       inputMode="numeric"
                       pattern="[0-9]*"
                     />
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      max {k.maxZiffern}
+                      max {category.maxDigits}
                     </span>
                   </div>
                 ))}
@@ -139,16 +163,49 @@ export function MeldungDialog({
           )}
 
           <div>
+            <label className="mb-2 block text-xs uppercase tracking-wider text-muted-foreground">
+              Gültigkeit
+            </label>
+            <RadioGroup
+              value={meldungIsValid ? "valid" : "invalid"}
+              onValueChange={(value) => onValidityChange(value === "valid")}
+              className="grid grid-cols-2 gap-2"
+            >
+              <Label className="flex items-center gap-2 border border-border px-3 py-2 text-xs uppercase tracking-wider">
+                <RadioGroupItem value="valid" />
+                Gültig
+              </Label>
+              <Label className="flex items-center gap-2 border border-border px-3 py-2 text-xs uppercase tracking-wider">
+                <RadioGroupItem value="invalid" />
+                Ungültig
+              </Label>
+            </RadioGroup>
+          </div>
+
+          <div>
             <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
               Kommentar
             </label>
             <Textarea
-              value={meldungKommentar}
-              onChange={(e) => onKommentarChange(e.target.value)}
+              value={meldungComment}
+              onChange={(e) => onCommentChange(e.target.value)}
               placeholder="Freitext..."
               className="min-h-15 resize-none text-base"
             />
           </div>
+
+          {mode === "edit" ? (
+            <div className="grid gap-2 border border-dashed border-border p-3 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between gap-3">
+                <span className="uppercase tracking-wider">Erstellt</span>
+                <span className="text-right text-foreground">{formatDateTime(createdAt)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="uppercase tracking-wider">Aktualisiert</span>
+                <span className="text-right text-foreground">{formatDateTime(updatedAt)}</span>
+              </div>
+            </div>
+          ) : null}
         </div>
         <DialogFooter>
           <Button
@@ -165,7 +222,7 @@ export function MeldungDialog({
             className="text-xs"
             disabled={!canSave}
           >
-            Erfassen
+            {mode === "edit" ? "Speichern" : "Erfassen"}
           </Button>
         </DialogFooter>
       </DialogContent>

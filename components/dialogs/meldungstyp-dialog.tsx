@@ -15,25 +15,25 @@ import { Input } from "@/components/ui/input";
 export interface KategorieFormRow {
   id: string;
   name: string;
-  maxZiffern: string;
+  maxDigits: string;
 }
 
 interface MeldungstypDialogProps {
   open: boolean;
   editingId: string | null;
   typName: string;
-  kategorien: KategorieFormRow[];
-  minProStunde: string;
+  categories: KategorieFormRow[];
+  minPerHour: string;
   onOpenChange: (open: boolean) => void;
   onTypNameChange: (value: string) => void;
   onAddKategorie: () => void;
   onRemoveKategorie: (id: string) => void;
   onUpdateKategorie: (
     id: string,
-    field: "name" | "maxZiffern",
+    field: "name" | "maxDigits",
     value: string,
   ) => void;
-  onMinProStundeChange: (value: string) => void;
+  onMinPerHourChange: (value: string) => void;
   onSave: () => void;
 }
 
@@ -41,19 +41,19 @@ export function MeldungstypDialog({
   open,
   editingId,
   typName,
-  kategorien,
-  minProStunde,
+  categories,
+  minPerHour,
   onOpenChange,
   onTypNameChange,
   onAddKategorie,
   onRemoveKategorie,
   onUpdateKategorie,
-  onMinProStundeChange,
+  onMinPerHourChange,
   onSave,
 }: MeldungstypDialogProps) {
   const canSave =
     typName.trim().length > 0 &&
-    kategorien.some((kategorie) => kategorie.name.trim().length > 0);
+    categories.some((category) => category.name.trim().length > 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -94,18 +94,18 @@ export function MeldungstypDialog({
             </div>
 
             <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-              {kategorien.map((kategorie, index) => (
+              {categories.map((category, index) => (
                 <div
-                  key={kategorie.id}
+                  key={category.id}
                   className="flex items-center gap-2 border border-border p-2"
                 >
                   <span className="w-5 shrink-0 font-mono text-xs text-muted-foreground">
                     {index + 1}.
                   </span>
                   <Input
-                    value={kategorie.name}
+                    value={category.name}
                     onChange={(e) =>
-                      onUpdateKategorie(kategorie.id, "name", e.target.value)
+                      onUpdateKategorie(category.id, "name", e.target.value)
                     }
                     placeholder="Kategoriename"
                     className="flex-1 font-mono text-sm"
@@ -115,11 +115,11 @@ export function MeldungstypDialog({
                       Max:
                     </label>
                     <Input
-                      value={kategorie.maxZiffern}
+                      value={category.maxDigits}
                       onChange={(e) =>
                         onUpdateKategorie(
-                          kategorie.id,
-                          "maxZiffern",
+                          category.id,
+                          "maxDigits",
                           e.target.value,
                         )
                       }
@@ -129,12 +129,12 @@ export function MeldungstypDialog({
                       max={10}
                     />
                   </div>
-                  {kategorien.length > 1 && (
+                  {categories.length > 1 && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => onRemoveKategorie(kategorie.id)}
+                      onClick={() => onRemoveKategorie(category.id)}
                       className="hover:text-destructive"
                       aria-label="Kategorie entfernen"
                     >
@@ -155,9 +155,9 @@ export function MeldungstypDialog({
               Min. Meldungen / Stunde
             </label>
             <Input
-              value={minProStunde}
+              value={minPerHour}
               onChange={(e) =>
-                onMinProStundeChange(e.target.value.replace(/\D/g, ""))
+                onMinPerHourChange(e.target.value.replace(/\D/g, ""))
               }
               placeholder="0"
               className="w-24 font-mono text-sm"

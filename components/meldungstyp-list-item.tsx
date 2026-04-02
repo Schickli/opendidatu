@@ -3,16 +3,16 @@
 import { Pencil, Settings2, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import type { Meldungstyp } from '@/lib/store'
+import type { MeldungType } from '@/lib/store'
 
 interface MeldungstypListItemProps {
-  typ: Meldungstyp
+  type: MeldungType
   onEdit: (id: string) => void
   onDelete: (id: string) => void
 }
 
 export function MeldungstypListItem({
-  typ,
+  type,
   onEdit,
   onDelete,
 }: MeldungstypListItemProps) {
@@ -22,24 +22,24 @@ export function MeldungstypListItem({
       <div className="flex w-full justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-foreground">{typ.name}</span>
-            {typ.minProStunde > 0 && (
+            <span className="text-xs font-bold text-foreground">{type.name}</span>
+            {type.minPerHour > 0 && (
               <span className="border border-border px-1.5 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">
-                Min {typ.minProStunde}/h
+                Min {type.minPerHour}/h
               </span>
             )}
             <span className="text-xs text-muted-foreground">
-              {typ.kategorien.length} Kat.
+              {type.categories.length} Kat.
             </span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
-            {typ.kategorien.map((kategorie) => (
+            {type.categories.map((category) => (
               <span
-                key={kategorie.id}
+                key={category.id}
                 className="inline-block border border-border bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
               >
-                {kategorie.name}
-                <span className="ml-1 text-foreground">[{kategorie.maxZiffern}]</span>
+                {category.name}
+                <span className="ml-1 text-foreground">[{category.maxDigits}]</span>
               </span>
             ))}
           </div>
@@ -50,8 +50,8 @@ export function MeldungstypListItem({
             type="button"
             variant="outline"
             size="icon-sm"
-            onClick={() => onEdit(typ.id)}
-            aria-label={`${typ.name} bearbeiten`}
+            onClick={() => onEdit(type.id)}
+            aria-label={`${type.name} bearbeiten`}
             title="Bearbeiten"
           >
             <Pencil />
@@ -60,9 +60,9 @@ export function MeldungstypListItem({
             type="button"
             variant="outline"
             size="icon-sm"
-            onClick={() => onDelete(typ.id)}
+            onClick={() => onDelete(type.id)}
             className="hover:text-destructive"
-            aria-label={`${typ.name} löschen`}
+            aria-label={`${type.name} löschen`}
             title="Löschen"
           >
             <Trash2 />

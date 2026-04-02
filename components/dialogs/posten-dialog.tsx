@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
+import { validateSwissCoordinateInput } from "@/lib/coordinates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,16 +15,16 @@ import {
 
 export interface PostenFormData {
   name: string;
-  lat: string;
-  lng: string;
-  kommentar: string;
+  easting: string;
+  northing: string;
+  comment: string;
 }
 
 export const emptyPostenForm: PostenFormData = {
   name: "",
-  lat: "",
-  lng: "",
-  kommentar: "",
+  easting: "",
+  northing: "",
+  comment: "",
 };
 
 interface PostenDialogProps {
@@ -43,6 +44,16 @@ export function PostenDialog({
   setPostenForm,
   onSave,
 }: PostenDialogProps) {
+  const coordinateErrors = validateSwissCoordinateInput({
+    easting: postenForm.easting,
+    northing: postenForm.northing,
+  });
+
+  const eastingError = postenForm.easting ? coordinateErrors.easting : undefined;
+  const northingError = postenForm.northing
+    ? coordinateErrors.northing
+    : undefined;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -68,33 +79,49 @@ export function PostenDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
-                Breitengrad (Lat)
+                Ostwert (LV95)
               </label>
               <Input
-                value={postenForm.lat}
+                value={postenForm.easting}
                 onChange={(e) =>
-                  setPostenForm((prev) => ({ ...prev, lat: e.target.value }))
+                  setPostenForm((prev) => ({
+                    ...prev,
+                    easting: e.target.value.replace(/\D/g, "").slice(0, 7),
+                  }))
                 }
-                placeholder="46.9500"
+                placeholder="2600000"
                 className="text-base"
-                type="number"
-                step="0.0001"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="off"
               />
+              {eastingError && (
+                <p className="mt-1 text-xs text-destructive">{eastingError}</p>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
-                Laengengrad (Lng)
+                Nordwert (LV95)
               </label>
               <Input
-                value={postenForm.lng}
+                value={postenForm.northing}
                 onChange={(e) =>
-                  setPostenForm((prev) => ({ ...prev, lng: e.target.value }))
+                  setPostenForm((prev) => ({
+                    ...prev,
+                    northing: e.target.value.replace(/\D/g, "").slice(0, 7),
+                  }))
                 }
-                placeholder="7.4500"
+                placeholder="1200000"
                 className="text-base"
-                type="number"
-                step="0.0001"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="off"
               />
+              {northingError && (
+                <p className="mt-1 text-xs text-destructive">{northingError}</p>
+              )}
             </div>
           </div>
           <div>
@@ -102,11 +129,11 @@ export function PostenDialog({
               Kommentar
             </label>
             <Textarea
-              value={postenForm.kommentar}
+              value={postenForm.comment}
               onChange={(e) =>
                 setPostenForm((prev) => ({
                   ...prev,
-                  kommentar: e.target.value,
+                  comment: e.target.value,
                 }))
               }
               placeholder="Freitext..."
@@ -127,8 +154,8 @@ export function PostenDialog({
             className="text-xs"
             disabled={
               !postenForm.name.trim() ||
-              isNaN(parseFloat(postenForm.lat)) ||
-              isNaN(parseFloat(postenForm.lng))
+              Boolean(coordinateErrors.easting) ||
+              Boolean(coordinateErrors.northing)
             }
           >
             {editingPostenId ? "Speichern" : "Erstellen"}

@@ -1,14 +1,28 @@
 "use client";
 
-import { Clock, MessageSquare, Trash2 } from "lucide-react";
+import {
+  Clock,
+  MessageSquare,
+  MoreHorizontal,
+  Pencil,
+  RefreshCcw,
+  Trash2,
+} from "lucide-react";
 import type { Meldung } from "@/lib/store";
 import { Button } from "./ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 interface MeldungListItemProps {
   meldung: Meldung;
   typName: string;
   postenName?: string;
   showPostenName: boolean;
+  onEdit: () => void;
   onDelete: (id: string) => void;
 }
 
@@ -17,6 +31,7 @@ function formatTime(iso: string) {
   return d.toLocaleTimeString("de-CH", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Europe/Zurich",
   });
 }
 
@@ -25,8 +40,11 @@ export function MeldungListItem({
   typName,
   postenName,
   showPostenName,
+  onEdit,
   onDelete,
 }: MeldungListItemProps) {
+  const hasUpdate = meldung.updatedAt !== meldung.createdAt;
+
   return (
     <div className="flex items-start gap-2 px-3 py-1.5">
       <MessageSquare className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
@@ -40,44 +58,75 @@ export function MeldungListItem({
 
               <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
                 <Clock className="size-3" />
-                <span className="text-xs">{formatTime(meldung.erstelltAm)}</span>
+                <span className="text-xs">{formatTime(meldung.createdAt)}</span>
               </span>
+              {hasUpdate ? (
+                <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
+                  <RefreshCcw className="size-3" />
+                  <span className="text-xs">
+                    {formatTime(meldung.updatedAt)}
+                  </span>
+                </span>
+              ) : null}
+              <span
+                className={`m-auto size-2 ${
+                  meldung.isValid ? "bg-emerald-500" : "bg-red-500"
+                }`}
+                aria-label={meldung.isValid ? "Gültig" : "Ungültig"}
+                title={meldung.isValid ? "Gültig" : "Ungültig"}
+              />
             </div>
 
             {showPostenName && postenName ? (
-              <span className="min-w-0 text-xs leading-tight text-muted-foreground break-all [overflow-wrap:anywhere]">
+              <span className="wrap-anywhere min-w-0 text-xs leading-tight text-muted-foreground break-all">
                 {postenName}
               </span>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-1">
-            {meldung.werte.map((wert) => (
+            {meldung.values.map((valueItem) => (
               <span
-                key={wert.kategorieId}
+                key={valueItem.categoryId}
                 className="inline-flex border border-border text-xs"
               >
                 <span className="bg-secondary px-1 py-px text-muted-foreground">
-                  {wert.kategorieName}
+                  {valueItem.categoryName}
                 </span>
-                <span className="px-1 py-px font-bold">{wert.wert}</span>
+                <span className="px-1 py-px font-bold">{valueItem.value}</span>
               </span>
             ))}
           </div>
-          {meldung.kommentar && (
+          {meldung.comment && (
             <div className="mt-0.5 text-xs text-muted-foreground">
-              {meldung.kommentar}
+              {meldung.comment}
             </div>
           )}
         </div>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          onClick={() => onDelete(meldung.id)}
-          aria-label="Meldung löschen"
-          className="ml-1 shrink-0"
-        >
-          <Trash2 />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Meldung Aktionen"
+              className="ml-1 shrink-0"
+            >
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil />
+              Bearbeiten
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => onDelete(meldung.id)}
+            >
+              <Trash2 />
+              Loeschen
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

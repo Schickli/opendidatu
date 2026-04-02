@@ -10,19 +10,20 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { formatSwissCoordinates } from "@/lib/coordinates";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import type { Meldung, Meldungstyp, Posten } from "@/lib/store";
+import type { Meldung, MeldungType, Posten } from "@/lib/store";
 
 interface PostenListItemProps {
   posten: Posten;
   isExpanded: boolean;
   isSelected: boolean;
-  typenMitMinimum: Meldungstyp[];
+  typesWithMinimum: MeldungType[];
   meldungen: Meldung[];
   onToggleExpand: (postenId: string) => void;
   onToggleSelect: (postenId: string, isSelected: boolean) => void;
@@ -33,28 +34,29 @@ interface PostenListItemProps {
 
 function countMeldungenLastHourByTyp(
   postenId: string,
-  meldungstypId: string,
-  meldungen: Pick<Meldung, "postenId" | "meldungstypId" | "erstelltAm">[]
+  typeId: string,
+  meldungen: Pick<Meldung, "postenId" | "typeId" | "createdAt" | "isValid">[]
 ) {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
   return meldungen.filter(
     (meldung) =>
+      meldung.isValid &&
       meldung.postenId === postenId &&
-      meldung.meldungstypId === meldungstypId &&
-      new Date(meldung.erstelltAm).getTime() > oneHourAgo
+      meldung.typeId === typeId &&
+      new Date(meldung.createdAt).getTime() > oneHourAgo
   ).length;
 }
 
 function getPostenOverallStatus(
   postenId: string,
-  typenMitMinimum: Meldungstyp[],
+  typesWithMinimum: MeldungType[],
   meldungen: Meldung[]
 ): "ok" | "warning" | "none" {
-  if (typenMitMinimum.length === 0) return "none";
+  if (typesWithMinimum.length === 0) return "none";
 
-  const allFulfilled = typenMitMinimum.every((typ) => {
-    const count = countMeldungenLastHourByTyp(postenId, typ.id, meldungen);
-    return count >= typ.minProStunde;
+  const allFulfilled = typesWithMinimum.every((type) => {
+    const count = countMeldungenLastHourByTyp(postenId, type.id, meldungen);
+    return count >= type.minPerHour;
   });
 
   return allFulfilled ? "ok" : "warning";
@@ -64,7 +66,7 @@ export function PostenListItem({
   posten,
   isExpanded,
   isSelected,
-  typenMitMinimum,
+  typesWithMinimum,
   meldungen,
   onToggleExpand,
   onToggleSelect,
@@ -74,7 +76,7 @@ export function PostenListItem({
 }: PostenListItemProps) {
   const overallStatus = getPostenOverallStatus(
     posten.id,
-    typenMitMinimum,
+    typesWithMinimum,
     meldungen
   );
 
@@ -110,12 +112,11 @@ export function PostenListItem({
           aria-label={isSelected ? `${posten.name} abwaehlen` : `${posten.name} auswaehlen`}
         >
           <span className="flex min-w-0 flex-1 flex-col items-start text-left">
-            <span className="whitespace-normal break-all text-xs leading-tight font-bold text-foreground [overflow-wrap:anywhere]">
+            <span className="wrap-anywhere whitespace-normal break-all text-xs leading-tight font-bold text-foreground">
               {posten.name}
             </span>
             <span className="text-xs text-muted-foreground">
-              {posten.coordinates.lat.toFixed(4)}, {" "}
-              {posten.coordinates.lng.toFixed(4)}
+              {formatSwissCoordinates(posten.coordinates)}
             </span>
           </span>
         </Button>
@@ -172,7 +173,7 @@ export function PostenListItem({
 
       <CollapsibleContent>
         <div className="border-t border-dashed border-border bg-secondary/50 px-3 py-2">
-          {typenMitMinimum.length === 0 ? (
+          {typesWithMinimum.length === 0 ? (
             <div className="px-5 py-1 text-xs text-muted-foreground">
               Keine Meldungstypen mit Minimum definiert
             </div>
@@ -181,20 +182,20 @@ export function PostenListItem({
               <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Status letzte Stunde
               </div>
-              {typenMitMinimum.map((typ) => {
+              {typesWithMinimum.map((type) => {
                 const count = countMeldungenLastHourByTyp(
                   posten.id,
-                  typ.id,
+                  type.id,
                   meldungen
                 );
-                const fulfilled = count >= typ.minProStunde;
+                const fulfilled = count >= type.minPerHour;
 
                 return (
                   <div
-                    key={typ.id}
+                    key={type.id}
                     className="flex items-center justify-between gap-2"
                   >
-                    <span className="text-xs text-foreground">{typ.name}</span>
+                    <span className="text-xs text-foreground">{type.name}</span>
                     <div
                       className={`flex items-center gap-1 border px-1.5 py-0.5 text-xs ${
                         fulfilled
@@ -207,7 +208,7 @@ export function PostenListItem({
                       ) : (
                         <AlertTriangle className="size-3" />
                       )}
-                      {count}/{typ.minProStunde}
+                      {count}/{type.minPerHour}
                     </div>
                   </div>
                 );
@@ -215,9 +216,9 @@ export function PostenListItem({
             </div>
           )}
 
-          {posten.kommentar && (
+          {posten.comment && (
             <div className="mt-2 border-t border-dashed border-border pl-5 pt-1.5 text-xs text-muted-foreground">
-              {posten.kommentar}
+              {posten.comment}
             </div>
           )}
         </div>
