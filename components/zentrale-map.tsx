@@ -1,5 +1,6 @@
 'use client'
 
+import { renderToStaticMarkup } from 'react-dom/server'
 import { useEffect, useRef, useState } from 'react'
 import {
   LngLatBounds,
@@ -9,11 +10,11 @@ import {
   Popup,
 } from 'maplibre-gl'
 import {
-  formatSwissCoordinates,
   swissToWgs84,
 } from '@/lib/coordinates'
 import { useData } from '@/lib/data-context'
 import type { Posten, Meldung } from '@/lib/store'
+import { PostenPopupContent } from './posten-popup-content'
 
 function getMeldungenLastHourByTyp(
   postenId: string,
@@ -62,11 +63,6 @@ function createPostenIcon(status: 'ok' | 'warning' | 'none', isSelected: boolean
   element.style.cursor = 'pointer'
 
   return element
-}
-
-function formatTime(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function ZentraleMap() {
@@ -163,63 +159,30 @@ export function ZentraleMap() {
       bounds.extend([lng, lat])
       hasBounds = true
 
-      let statusHtml = ''
-      if (typesWithMinimum.length > 0) {
-        statusHtml = typesWithMinimum
-          .map((type) => {
-            const count = getMeldungenLastHourByTyp(p.id, type.id, meldungen)
-            const ok = count >= type.minPerHour
-            const color = ok ? '#333' : '#c44'
-            const icon = ok ? '&#10003;' : '&#9888;'
-            return `<span style="color: ${color};">${icon} ${type.name} ${count}/${type.minPerHour}</span>`
-          })
-          .join(' &nbsp; ')
-      }
+      const statusRows = typesWithMinimum.map((type) => ({
+        id: type.id,
+        name: type.name,
+        count: getMeldungenLastHourByTyp(p.id, type.id, meldungen),
+        minPerHour: type.minPerHour,
+      }))
 
-      let popupContent = `<div style="font-family: monospace; font-size: 12px; min-width: 200px; padding: 4px 0;">
-        <div style="font-weight: 700; font-size: 13px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 6px;">
-          ${p.name}
-        </div>
-        <div style="color: #666; font-size: 11px; margin-bottom: 4px;">${formatSwissCoordinates(p.coordinates)}</div>`
-
-      if (statusHtml) {
-        popupContent += `<div style="font-size: 11px; margin-bottom: 6px; display: flex; gap: 8px; flex-wrap: wrap;">${statusHtml}</div>`
-      }
-
-      if (p.comment) {
-        popupContent += `<div style="color: #444; font-size: 11px; margin-bottom: 6px;">${p.comment}</div>`
-      }
-
-      if (postenMeldungen.length > 0) {
-        popupContent += `<div style="border-top: 1px solid #eee; padding-top: 4px; font-size: 11px; color: #666;">Letzte Meldungen:</div>`
-        postenMeldungen.slice(0, 3).forEach((n: Meldung) => {
-          const type = messageTypes.find(
-            (entry) => entry.id === n.typeId
-          )
-          const valueText = n.values
-            .map((valueItem) => `${valueItem.categoryName}: ${valueItem.value}`)
-            .join(' | ')
-          const validLabel = n.isValid
-            ? ''
-            : ' <span style="color: #c44; font-weight: 600;">ungültig</span>'
-          popupContent += `<div style="font-size: 11px; padding: 2px 0; border-bottom: 1px solid #f0f0f0;">
-            <span style="font-weight: 600;">${type?.name || '?'}</span> 
-            <span style="color: #888;">${formatTime(n.createdAt)}</span>${validLabel}<br/>
-            <span style="color: #555;">${valueText}</span>
-          </div>`
-        })
-      } else {
-        popupContent += `<div style="font-size: 11px; color: #999; padding-top: 4px;">Keine Meldungen</div>`
-      }
-
-      popupContent += `</div>`
+      const popupMarkup = renderToStaticMarkup(
+        <PostenPopupContent
+          posten={p}
+          statusRows={statusRows}
+          recentMeldungen={postenMeldungen.slice(0, 3)}
+          getTypeName={(typeId) =>
+            messageTypes.find((entry) => entry.id === typeId)?.name || '?'
+          }
+        />
+      )
 
       const popup = new Popup({
         closeButton: true,
         className: 'custom-popup',
         maxWidth: '320px',
       })
-        .setHTML(popupContent)
+        .setHTML(popupMarkup)
 
       const marker = new Marker({
         element: markerElement,

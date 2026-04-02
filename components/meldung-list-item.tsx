@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 interface MeldungListItemProps {
   meldung: Meldung;
@@ -24,6 +25,8 @@ interface MeldungListItemProps {
   showPostenName: boolean;
   onEdit: () => void;
   onDelete: (id: string) => void;
+  showActions?: boolean;
+  className?: string;
 }
 
 function formatTime(iso: string) {
@@ -42,11 +45,13 @@ export function MeldungListItem({
   showPostenName,
   onEdit,
   onDelete,
+  showActions = true,
+  className,
 }: MeldungListItemProps) {
   const hasUpdate = meldung.updatedAt !== meldung.createdAt;
 
   return (
-    <div className="flex items-start gap-2 px-3 py-1.5">
+    <div className={cn("flex items-start gap-2 px-3 py-1.5", className)}>
       <MessageSquare className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
       <div className="flex min-w-0 w-full justify-between gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -102,31 +107,33 @@ export function MeldungListItem({
             </div>
           )}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Meldung Aktionen"
-              className="ml-1 shrink-0"
-            >
-              <MoreHorizontal />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onEdit}>
-              <Pencil />
-              Bearbeiten
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => onDelete(meldung.id)}
-            >
-              <Trash2 />
-              Loeschen
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {showActions ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Meldung Aktionen"
+                className="ml-1 shrink-0"
+              >
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onEdit}>
+                <Pencil />
+                Bearbeiten
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => onDelete(meldung.id)}
+              >
+                <Trash2 />
+                Loeschen
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
       </div>
     </div>
   );

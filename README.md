@@ -10,8 +10,6 @@ The whole application is meant to run on a docker container, so you need to have
 docker compose up --build
 ```
 
-This will start a database container and the application container.
-
 The application will be available at `localhost:8000`. You can access the panel at `localhost:8000`
 If you want to access the applciation from another machine, you need to change the `localhost` to the IP address of the machine where the application is running.
 
@@ -22,3 +20,9 @@ If you want the applciation to be available on the local network under `opendida
 ```
 
 Then you can access the application at `http://opendidatu.local:8000`.
+
+## Database
+
+The database is a simple SQLite database that is stored in the `data` folder. You can access it using any SQLite client. If you want to use a existing database, you can copy it to the `data` folder and it will be used by the application.
+
+When there is no database file matching the expected name, the application will try to create a new one.

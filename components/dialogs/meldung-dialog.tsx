@@ -140,7 +140,7 @@ export function MeldungDialog({
                     key={category.id}
                     className="flex items-center gap-2 border border-border p-2"
                   >
-                    <span className="w-28 shrink-0 text-xs text-muted-foreground">
+                    <span className="w-28 shrink-0 text-xs text-muted-foreground wrap-anywhere">
                       {category.name}
                     </span>
                     <Input
@@ -149,7 +149,7 @@ export function MeldungDialog({
                         onValueChange(category.id, e.target.value, category.maxDigits)
                       }
                       placeholder={"0".repeat(category.maxDigits)}
-                      className="text-base"
+                      className="min-w-0 flex-1 text-base"
                       inputMode="numeric"
                       pattern="[0-9]*"
                     />
