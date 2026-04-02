@@ -86,7 +86,7 @@ export const SAMPLE_POSTEN: Posten[] = [
     id: 5,
     name: 'E',
     coordinates: { easting: 2601794, northing: 1199257 },
-    comment: 'Erfuellt mehrere Mindestwerte exakt auf der Grenze.',
+    comment: 'Erfüllt mehrere Mindestwerte exakt auf der Grenze.',
     createdAt: timestampMinutesAgo(560),
   },
   {

@@ -3,6 +3,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  type GeoJSONSource,
   LngLatBounds,
   Map as MapLibreMap,
   Marker,
@@ -28,6 +29,23 @@ type MapStyleDocument = Exclude<ConstructorParameters<typeof MapLibreMap>[0]['st
   sources?: Record<string, MapStyleSource>
   [key: string]: unknown
 }
+
+type CircleFeatureCollection = {
+  type: 'FeatureCollection'
+  features: Array<{
+    type: 'Feature'
+    geometry: {
+      type: 'Polygon'
+      coordinates: number[][][]
+    }
+    properties: Record<string, never>
+  }>
+}
+
+const ACTIVE_POSTEN_RADIUS_SOURCE_ID = 'active-posten-radius'
+const ACTIVE_POSTEN_RADIUS_FILL_LAYER_ID = 'active-posten-radius-fill'
+const ACTIVE_POSTEN_RADIUS_LINE_LAYER_ID = 'active-posten-radius-line'
+const ACTIVE_POSTEN_RADIUS_METERS = 5_000
 
 function toAbsoluteMapUrl(url: string, origin: string) {
   if (/^[a-z][a-z\d+.-]*:/i.test(url)) {
@@ -101,6 +119,59 @@ function createPostenIcon(status: 'ok' | 'warning' | 'none', isSelected: boolean
   return element
 }
 
+function createEmptyFeatureCollection(): CircleFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: [],
+  }
+}
+
+function createCircleFeatureCollection(
+  center: [number, number],
+  radiusMeters: number,
+  steps = 64,
+): CircleFeatureCollection {
+  const [centerLng, centerLat] = center
+  const angularDistance = radiusMeters / 6_371_008.8
+  const latitudeRadians = (centerLat * Math.PI) / 180
+  const longitudeRadians = (centerLng * Math.PI) / 180
+  const coordinates: number[][] = []
+
+  for (let index = 0; index <= steps; index += 1) {
+    const bearing = (index / steps) * Math.PI * 2
+    const sinLatitude = Math.sin(latitudeRadians)
+    const cosLatitude = Math.cos(latitudeRadians)
+    const sinDistance = Math.sin(angularDistance)
+    const cosDistance = Math.cos(angularDistance)
+    const latitude = Math.asin(
+      sinLatitude * cosDistance + cosLatitude * sinDistance * Math.cos(bearing),
+    )
+    const longitude = longitudeRadians + Math.atan2(
+      Math.sin(bearing) * sinDistance * cosLatitude,
+      cosDistance - sinLatitude * Math.sin(latitude),
+    )
+
+    coordinates.push([
+      (longitude * 180) / Math.PI,
+      (latitude * 180) / Math.PI,
+    ])
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [coordinates],
+        },
+        properties: {},
+      },
+    ],
+  }
+}
+
 export function ZentraleMap() {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<MapLibreMap | null>(null)
@@ -155,6 +226,32 @@ export function ZentraleMap() {
           })
 
           map.on('load', () => {
+            map.addSource(ACTIVE_POSTEN_RADIUS_SOURCE_ID, {
+              type: 'geojson',
+              data: createEmptyFeatureCollection(),
+            })
+
+            map.addLayer({
+              id: ACTIVE_POSTEN_RADIUS_FILL_LAYER_ID,
+              type: 'fill',
+              source: ACTIVE_POSTEN_RADIUS_SOURCE_ID,
+              paint: {
+                'fill-color': '#1f2937',
+                'fill-opacity': 0.1,
+              },
+            })
+
+            map.addLayer({
+              id: ACTIVE_POSTEN_RADIUS_LINE_LAYER_ID,
+              type: 'line',
+              source: ACTIVE_POSTEN_RADIUS_SOURCE_ID,
+              paint: {
+                'line-color': '#111827',
+                'line-opacity': 0.45,
+                'line-width': 2,
+              },
+            })
+
             setMapReady(true)
           })
 
@@ -186,6 +283,26 @@ export function ZentraleMap() {
       mapInstanceRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !mapReady) return
+
+    const source = map.getSource(ACTIVE_POSTEN_RADIUS_SOURCE_ID) as GeoJSONSource | undefined
+    if (!source) return
+
+    const selectedPosten = posten.find((entry) => entry.id === selectedPostenId)
+
+    if (!selectedPosten) {
+      source.setData(createEmptyFeatureCollection())
+      return
+    }
+
+    const [lng, lat] = swissToWgs84(selectedPosten.coordinates)
+    source.setData(
+      createCircleFeatureCollection([lng, lat], ACTIVE_POSTEN_RADIUS_METERS),
+    )
+  }, [mapReady, posten, selectedPostenId])
 
   useEffect(() => {
     const map = mapInstanceRef.current
