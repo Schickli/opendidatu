@@ -7,6 +7,8 @@ import { pipeline } from 'node:stream/promises'
 
 const DEFAULT_STYLE_TEMPLATE_URL =
   'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json'
+const DEFAULT_SPRITE_BASE_URL =
+  'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/sprite/sprite'
 const DEFAULT_TILE_METADATA_URL =
   'https://vectortiles.geo.admin.ch/tiles/ch.swisstopo.base.vt/v1.0.0/tiles.json'
 const DEFAULT_MBTILES_URL =
@@ -84,6 +86,20 @@ async function ensureAsset(filePath, url, label) {
   await downloadFile(url, filePath)
 }
 
+async function ensureSpriteAssets() {
+  const spriteBaseUrl = process.env.MAP_SPRITE_BASE_URL ?? DEFAULT_SPRITE_BASE_URL
+  const spriteVariants = [
+    ['sprite.json', `${spriteBaseUrl}.json`, 'sprite index'],
+    ['sprite.png', `${spriteBaseUrl}.png`, 'sprite image'],
+    ['sprite@2x.json', `${spriteBaseUrl}@2x.json`, 'sprite index (@2x)'],
+    ['sprite@2x.png', `${spriteBaseUrl}@2x.png`, 'sprite image (@2x)'],
+  ]
+
+  for (const [fileName, url, label] of spriteVariants) {
+    await ensureAsset(resolveMapAssetPath(`MAP_${fileName.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_PATH`, fileName), url, label)
+  }
+}
+
 async function bootstrapRuntime() {
   const databasePath = resolveDatabasePath()
   const mapDirectory = resolveMapDirectory()
@@ -104,6 +120,7 @@ async function bootstrapRuntime() {
     process.env.MAP_STYLE_TEMPLATE_URL ?? DEFAULT_STYLE_TEMPLATE_URL,
     'map style'
   )
+  await ensureSpriteAssets()
   await ensureAsset(
     mbtilesPath,
     process.env.MAP_MBTILES_URL ?? DEFAULT_MBTILES_URL,

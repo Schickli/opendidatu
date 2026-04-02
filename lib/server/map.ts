@@ -4,6 +4,13 @@ import Database from 'better-sqlite3'
 
 const DEFAULT_MAP_DIRECTORY = path.join(process.cwd(), 'map')
 const LOCAL_TILE_PATH = '/api/map/tiles/{z}/{x}/{y}'
+const LOCAL_SPRITE_PATH = '/api/map/sprite/sprite'
+const SPRITE_ASSET_CONTENT_TYPES: Record<string, string> = {
+  'sprite.json': 'application/json; charset=utf-8',
+  'sprite.png': 'image/png',
+  'sprite@2x.json': 'application/json; charset=utf-8',
+  'sprite@2x.png': 'image/png',
+}
 
 type VectorSource = {
   type?: string
@@ -62,6 +69,10 @@ function getMapTileMetadataPath() {
 
 function getStyleTemplatePath() {
   return resolveMapAssetPath('MAP_STYLE_PATH', 'style.json')
+}
+
+function getSpriteAssetPath(assetName: keyof typeof SPRITE_ASSET_CONTENT_TYPES) {
+  return resolveMapAssetPath(`MAP_${assetName.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_PATH`, assetName)
 }
 
 async function loadJsonFile<T>(filePath: string) {
@@ -139,8 +150,21 @@ export async function getMapStyle(origin: string) {
   const metadata = await loadTileMetadata()
 
   rewriteVectorSources(style, toAbsoluteTileTemplate(LOCAL_TILE_PATH, origin), metadata)
+  style.sprite = toAbsoluteTileTemplate(LOCAL_SPRITE_PATH, origin)
 
   return style
+}
+
+export function isSupportedSpriteAsset(assetName: string): assetName is keyof typeof SPRITE_ASSET_CONTENT_TYPES {
+  return assetName in SPRITE_ASSET_CONTENT_TYPES
+}
+
+export function getSpriteAssetContentType(assetName: keyof typeof SPRITE_ASSET_CONTENT_TYPES) {
+  return SPRITE_ASSET_CONTENT_TYPES[assetName]
+}
+
+export async function readSpriteAsset(assetName: keyof typeof SPRITE_ASSET_CONTENT_TYPES) {
+  return readFile(getSpriteAssetPath(assetName))
 }
 
 export function readVectorTile(z: number, x: number, y: number) {

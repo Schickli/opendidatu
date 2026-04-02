@@ -28,7 +28,7 @@ docker run --name opendidatu \
   opendidatu:latest
 ```
 
-On first startup, the container bootstrap downloads the map metadata, the map style JSON, and the mbtiles archive into the mounted map volume. The database file is created automatically in the mounted data volume.
+On first startup, the container bootstrap downloads the map metadata, the map style JSON, the sprite assets, and the mbtiles archive into the mounted map volume. The database file is created automatically in the mounted data volume.
 
 Useful optional runtime variables:
 
@@ -40,6 +40,7 @@ MAP_MBTILES_URL=https://vectortiles.geo.admin.ch/tiles/ch.swisstopo.base.vt/v1.0
 MAP_TILE_METADATA_URL=https://vectortiles.geo.admin.ch/tiles/ch.swisstopo.base.vt/v1.0.0/tiles.json
 MAP_STYLE_PATH=/app/map/style.json
 MAP_STYLE_TEMPLATE_URL=https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json
+MAP_SPRITE_BASE_URL=https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/sprite/sprite
 SEED_SAMPLE_DATA=false
 ```
 
@@ -61,6 +62,12 @@ pnpm dev
 
 The application is then available at `http://localhost:3000`.
 
+You can also run the download script to fetch the map assets:
+
+```bash
+./map/downloadMap.sh
+```
+
 ## Database
 
 By default, the SQLite database is created at `./data/opendidatu.sqlite`.
@@ -73,13 +80,17 @@ DATABASE_PATH=/absolute/path/to/opendidatu.sqlite
 
 ## Map Assets
 
-The app serves the map style through `/api/map/style` and vector tiles through `/api/map/tiles/{z}/{x}/{y}`.
+The app serves the map style through `/api/map/style`, sprite assets through `/api/map/sprite/sprite(.json|.png|@2x.json|@2x.png)`, and vector tiles through `/api/map/tiles/{z}/{x}/{y}`.
 
 Map assets default to files in `./map`, but can be overridden at runtime:
 
 - `map/demo.mbtiles`
 - `map/tiles.json`
 - `map/style.json`
+- `map/sprite.json`
+- `map/sprite.png`
+- `map/sprite@2x.json`
+- `map/sprite@2x.png`
 
 Relevant environment variables:
 
@@ -88,5 +99,6 @@ MAP_DATA_DIR=./map
 MAP_MBTILES_PATH=./map/demo.mbtiles
 MAP_TILE_METADATA_PATH=./map/tiles.json
 MAP_STYLE_PATH=./map/style.json
+MAP_SPRITE_BASE_URL=https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/sprite/sprite
 MAP_AUTO_DOWNLOAD=true
 ```
