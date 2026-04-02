@@ -4,6 +4,12 @@
 
 Tries to be a simple alternative to Didatu, with a focus on ease of use. The main goal is to have something for training purposes until a new full featured application is in place.
 
+Its fully self-contained application that can run without any internet connection after the initial setup. It uses SQLite for data storage and serves map assets from local files. We use the Swiss topo vector tiles as a map source.
+
+The application also provides a simple way of assesing if periodic messages were sent by the outposts. If for example a outpost forgets to send a hourly mandatory message, this can be easily spotted in the UI and the outpost can be contacted to check if everything is ok.
+
+For every message there is a flag for recording if the message was valid or not. This allows to easily filter out invalid messages in the UI and to have a better overview of the data quality.
+
 ## Docker
 
 The project now includes Docker packaging for a published-image workflow.
@@ -114,3 +120,5 @@ MAP_AUTO_DOWNLOAD=true
 - [ ] Add a csv export endpoint for the data
 - [ ] Add a GPX import option for additional data on the map
 - [ ] Add integration tests for the API endpoints
+- [ ] Filters to only show certain type of messages in a certain time range
+- [ ] Data quality overview with the percentage of valid messages per outpost
