@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { JetBrains_Mono, Inter } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './globals.css'
 
@@ -44,7 +43,6 @@ export default function RootLayout({
     <html lang="de" className="bg-background">
       <body className="font-mono antialiased">
         {children}
-        <Analytics />
       </body>
     </html>
   )

@@ -567,9 +567,9 @@ export function PostenMeldungenPanel() {
                   ))}
                   <DropdownMenuSeparator />
                   <Button
-                    variant="outlines"
+                    variant="outline"
                     onClick={resetMeldungenFilters}
-                    className="focus:bg-accent focus:text-accent-foreground flex w-full cursor-pointer items-center rounded-sm px-2 py-1.5 text-left text-sm outline-hidden"
+                    className="w-full"
                   >
                     Filter zuruecksetzen
                   </Button>

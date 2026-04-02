@@ -1,5 +1,6 @@
-import { and, asc, count, desc, eq, gt, gte, inArray, lt, lte, or } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, gte, inArray, lt, lte, or, sql } from 'drizzle-orm'
 import type {
+  AnalyticsData,
   BootstrapSnapshot,
   CreateMeldungInput,
   CreateMessageTypeInput,
@@ -491,4 +492,193 @@ export function deleteMeldung(id: number) {
   const db = getDb()
   db.delete(meldungenTable).where(eq(meldungenTable.id, id)).run()
   return getBootstrapSnapshot()
+}
+
+export function getAnalyticsData(options?: {
+  rangeStartAt?: number
+  rangeEndAt?: number
+}): AnalyticsData {
+  const db = getDb()
+  const timeFilters: Array<ReturnType<typeof gte>> = []
+
+  if (options?.rangeStartAt !== undefined) {
+    timeFilters.push(gte(meldungenTable.createdAt, options.rangeStartAt))
+  }
+  if (options?.rangeEndAt !== undefined) {
+    timeFilters.push(lte(meldungenTable.createdAt, options.rangeEndAt))
+  }
+
+  const whereClause =
+    timeFilters.length === 0
+      ? undefined
+      : timeFilters.length === 1
+        ? timeFilters[0]
+        : and(...timeFilters)
+
+  const postenRows = db.select().from(postenTable).all()
+  const postenMap = new Map(postenRows.map((p) => [p.id, p.name]))
+
+  const typeRows = db.select().from(messageTypesTable).all()
+  const typeMap = new Map(typeRows.map((t) => [t.id, t]))
+
+  // Overall counts
+  const [{ value: totalMeldungen }] = db
+    .select({ value: count() })
+    .from(meldungenTable)
+    .where(whereClause)
+    .all()
+
+  const validWhere = whereClause
+    ? and(whereClause, eq(meldungenTable.isValid, true))
+    : eq(meldungenTable.isValid, true)
+
+  const [{ value: validMeldungen }] = db
+    .select({ value: count() })
+    .from(meldungenTable)
+    .where(validWhere)
+    .all()
+
+  const invalidMeldungen = totalMeldungen - validMeldungen
+
+  // Validity grouped by posten
+  const validityGrouped = db
+    .select({
+      postenId: meldungenTable.postenId,
+      isValid: meldungenTable.isValid,
+      count: count(),
+    })
+    .from(meldungenTable)
+    .where(whereClause)
+    .groupBy(meldungenTable.postenId, meldungenTable.isValid)
+    .all()
+
+  const validityAgg = new Map<number, { valid: number; invalid: number }>()
+  for (const row of validityGrouped) {
+    const cur = validityAgg.get(row.postenId) ?? { valid: 0, invalid: 0 }
+    if (row.isValid) {
+      cur.valid = row.count
+    } else {
+      cur.invalid = row.count
+    }
+    validityAgg.set(row.postenId, cur)
+  }
+
+  const validityByPosten = Array.from(validityAgg.entries()).map(([postenId, c]) => ({
+    postenId,
+    postenName: postenMap.get(postenId) ?? `Posten ${postenId}`,
+    total: c.valid + c.invalid,
+    valid: c.valid,
+    invalid: c.invalid,
+  }))
+
+  // Messages per type per posten
+  const msgByTypeGrouped = db
+    .select({
+      postenId: meldungenTable.postenId,
+      typeId: meldungenTable.typeId,
+      count: count(),
+    })
+    .from(meldungenTable)
+    .where(whereClause)
+    .groupBy(meldungenTable.postenId, meldungenTable.typeId)
+    .all()
+
+  const messagesByType = msgByTypeGrouped.map((row) => ({
+    postenId: row.postenId,
+    postenName: postenMap.get(row.postenId) ?? `Posten ${row.postenId}`,
+    typeId: row.typeId,
+    typeName: typeMap.get(row.typeId)?.name ?? `Typ ${row.typeId}`,
+    count: row.count,
+  }))
+
+  // Trend uses 30-minute bins; compliance view keeps hourly bins below.
+  const trendBucket = sql<number>`(${meldungenTable.createdAt} / 1800000) * 1800000`
+  const hourBucket = sql<number>`(${meldungenTable.createdAt} / 3600000) * 3600000`
+
+  const hourlyRows = db
+    .select({
+      trendBucket,
+      postenId: meldungenTable.postenId,
+      isValid: meldungenTable.isValid,
+      count: count(),
+    })
+    .from(meldungenTable)
+    .where(whereClause)
+    .groupBy(trendBucket, meldungenTable.postenId, meldungenTable.isValid)
+    .orderBy(trendBucket)
+    .all()
+
+  const hourlyAgg = new Map<string, { hour: number; postenId: number; total: number; valid: number }>()
+  for (const row of hourlyRows) {
+    const key = `${row.trendBucket}:${row.postenId}`
+    const cur = hourlyAgg.get(key) ?? { hour: row.trendBucket, postenId: row.postenId, total: 0, valid: 0 }
+    cur.total += row.count
+    if (row.isValid) {
+      cur.valid += row.count
+    }
+    hourlyAgg.set(key, cur)
+  }
+
+  const hourlyTrend = Array.from(hourlyAgg.values()).map((entry) => ({
+    ...entry,
+    postenName: postenMap.get(entry.postenId) ?? `Posten ${entry.postenId}`,
+  }))
+
+  // Compliance: avg messages per hour vs minPerHour
+  const distinctHours = new Set(hourlyTrend.map((e) => e.hour)).size || 1
+  const complianceMap = new Map<string, number>()
+  for (const row of msgByTypeGrouped) {
+    complianceMap.set(`${row.postenId}:${row.typeId}`, row.count)
+  }
+
+  const compliance: AnalyticsData['compliance'] = []
+  for (const [postenId] of postenMap) {
+    for (const [typeId, typeRow] of typeMap) {
+      if (typeRow.minPerHour <= 0) continue
+      const totalCount = complianceMap.get(`${postenId}:${typeId}`) ?? 0
+      compliance.push({
+        postenId,
+        postenName: postenMap.get(postenId) ?? `Posten ${postenId}`,
+        typeId,
+        typeName: typeRow.name,
+        minPerHour: typeRow.minPerHour,
+        avgPerHour: Math.round((totalCount / distinctHours) * 100) / 100,
+      })
+    }
+  }
+
+  // Hourly counts by type (for per-hour compliance heatmap)
+  const hourlyByTypeRows = db
+    .select({
+      hourBucket,
+      postenId: meldungenTable.postenId,
+      typeId: meldungenTable.typeId,
+      count: count(),
+    })
+    .from(meldungenTable)
+    .where(whereClause)
+    .groupBy(hourBucket, meldungenTable.postenId, meldungenTable.typeId)
+    .orderBy(hourBucket)
+    .all()
+
+  const hourlyByType = hourlyByTypeRows.map((row) => ({
+    hour: row.hourBucket,
+    postenId: row.postenId,
+    postenName: postenMap.get(row.postenId) ?? `Posten ${row.postenId}`,
+    typeId: row.typeId,
+    typeName: typeMap.get(row.typeId)?.name ?? `Typ ${row.typeId}`,
+    count: row.count,
+    minPerHour: typeMap.get(row.typeId)?.minPerHour ?? 0,
+  }))
+
+  return {
+    totalMeldungen,
+    validMeldungen,
+    invalidMeldungen,
+    validityByPosten,
+    messagesByType,
+    hourlyTrend,
+    compliance,
+    hourlyByType,
+  }
 }

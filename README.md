@@ -10,6 +10,10 @@ The application also provides a simple way of assesing if periodic messages were
 
 For every message there is a flag for recording if the message was valid or not. This allows to easily filter out invalid messages in the UI and to have a better overview of the data quality.
 
+![datanqualität](docs/datanqualität.png)
+
+With some built in charts it is also possible to have a quick overview of the data quality and to see if there are any outposts that are not sending valid messages or are missing their hourly mandatory messages.
+
 ## Docker
 
 The project now includes Docker packaging for a published-image workflow.
@@ -120,5 +124,6 @@ MAP_AUTO_DOWNLOAD=true
 - [ ] Add a csv export endpoint for the data
 - [ ] Add a GPX import option for additional data on the map
 - [ ] Add integration tests for the API endpoints
-- [ ] Filters to only show certain type of messages in a certain time range
-- [ ] Data quality overview with the percentage of valid messages per outpost
+- [x] Filters to only show certain type of messages in a certain time range
+- [x] Data quality overview with the percentage of valid messages per outpost
+- [ ] Instead of console.error handle errors in a more user friendly way and show them in the UI

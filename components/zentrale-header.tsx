@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+import { BarChart3 } from 'lucide-react'
 import { useData } from '@/lib/data-context'
 
 export function ZentraleHeader() {
@@ -22,6 +24,14 @@ export function ZentraleHeader() {
         <span>{posten.length} Posten</span>
         <div className="h-4 w-px bg-border" />
         <span>{meldungCount} Meldungen</span>
+        <div className="h-4 w-px bg-border" />
+        <Link
+          href="/analytics"
+          className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+          title="Datenqualität"
+        >
+          <BarChart3 className="h-4 w-4" />
+        </Link>
       </div>
     </header>
   )

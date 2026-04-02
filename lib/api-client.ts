@@ -1,4 +1,5 @@
 import {
+  analyticsDataSchema,
   bootstrapSnapshotSchema,
   createMeldungSchema,
   createMessageTypeSchema,
@@ -144,4 +145,16 @@ export function deleteMeldung(id: number) {
   return requestJson(`/api/meldungen/${id}`, bootstrapSnapshotSchema, {
     method: 'DELETE',
   })
+}
+
+export function fetchAnalytics(options?: { rangeStartAt?: number; rangeEndAt?: number }) {
+  const params = new URLSearchParams()
+  if (options?.rangeStartAt !== undefined) {
+    params.set('rangeStartAt', String(options.rangeStartAt))
+  }
+  if (options?.rangeEndAt !== undefined) {
+    params.set('rangeEndAt', String(options.rangeEndAt))
+  }
+  const suffix = params.size > 0 ? `?${params.toString()}` : ''
+  return requestJson(`/api/analytics${suffix}`, analyticsDataSchema, { cache: 'no-store' })
 }

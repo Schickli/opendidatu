@@ -118,3 +118,61 @@ export type CreateMessageTypeInput = z.infer<typeof createMessageTypeSchema>
 export type UpdateMessageTypeInput = z.infer<typeof updateMessageTypeSchema>
 export type CreateMeldungInput = z.infer<typeof createMeldungSchema>
 export type UpdateMeldungInput = z.infer<typeof updateMeldungSchema>
+
+// Analytics
+
+export const analyticsValidityByPostenSchema = z.object({
+  postenId: z.number(),
+  postenName: z.string(),
+  total: z.number(),
+  valid: z.number(),
+  invalid: z.number(),
+})
+
+export const analyticsMessagesByTypeSchema = z.object({
+  postenId: z.number(),
+  postenName: z.string(),
+  typeId: z.number(),
+  typeName: z.string(),
+  count: z.number(),
+})
+
+export const analyticsHourlyTrendSchema = z.object({
+  hour: z.number(),
+  postenId: z.number(),
+  postenName: z.string(),
+  total: z.number(),
+  valid: z.number(),
+})
+
+export const analyticsComplianceSchema = z.object({
+  postenId: z.number(),
+  postenName: z.string(),
+  typeId: z.number(),
+  typeName: z.string(),
+  minPerHour: z.number(),
+  avgPerHour: z.number(),
+})
+
+export const analyticsHourlyByTypeSchema = z.object({
+  hour: z.number(),
+  postenId: z.number(),
+  postenName: z.string(),
+  typeId: z.number(),
+  typeName: z.string(),
+  count: z.number(),
+  minPerHour: z.number(),
+})
+
+export const analyticsDataSchema = z.object({
+  totalMeldungen: z.number(),
+  validMeldungen: z.number(),
+  invalidMeldungen: z.number(),
+  validityByPosten: z.array(analyticsValidityByPostenSchema),
+  messagesByType: z.array(analyticsMessagesByTypeSchema),
+  hourlyTrend: z.array(analyticsHourlyTrendSchema),
+  compliance: z.array(analyticsComplianceSchema),
+  hourlyByType: z.array(analyticsHourlyByTypeSchema),
+})
+
+export type AnalyticsData = z.infer<typeof analyticsDataSchema>
