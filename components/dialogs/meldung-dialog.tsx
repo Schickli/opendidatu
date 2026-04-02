@@ -31,8 +31,8 @@ interface MeldungDialogProps {
   values: Record<string, string>;
   meldungComment: string;
   meldungIsValid: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: number;
+  updatedAt?: number;
   onOpenChange: (open: boolean) => void;
   onPostenChange: (postenId: string) => void;
   onTypeChange: (typeId: string) => void;
@@ -42,10 +42,10 @@ interface MeldungDialogProps {
   onSave: () => void;
 }
 
-function formatDateTime(iso?: string) {
-  if (!iso) return "-";
+function formatDateTime(timestamp?: number) {
+  if (timestamp === undefined) return "-";
 
-  return new Date(iso).toLocaleString("de-CH", {
+  return new Date(timestamp).toLocaleString("de-CH", {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "Europe/Zurich",
@@ -72,13 +72,13 @@ export function MeldungDialog({
   onValidityChange,
   onSave,
 }: MeldungDialogProps) {
-  const selectedType = messageTypes.find((type) => type.id === selectedTypeId);
+  const selectedType = messageTypes.find((type) => String(type.id) === selectedTypeId);
   const canSave =
     !!selectedPostenForMeldung &&
     !!selectedTypeId &&
     !!selectedType &&
     selectedType.categories.every(
-      (category) => values[category.id] && values[category.id].length > 0
+      (category) => values[String(category.id)] && values[String(category.id)].length > 0
     );
 
   return (
@@ -103,7 +103,7 @@ export function MeldungDialog({
               </SelectTrigger>
               <SelectContent>
                 {posten.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
+                  <SelectItem key={p.id} value={String(p.id)}>
                     {p.name}
                   </SelectItem>
                 ))}
@@ -121,7 +121,7 @@ export function MeldungDialog({
               </SelectTrigger>
               <SelectContent>
                 {messageTypes.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
+                  <SelectItem key={type.id} value={String(type.id)}>
                     {type.name}
                   </SelectItem>
                 ))}
@@ -144,9 +144,9 @@ export function MeldungDialog({
                       {category.name}
                     </span>
                     <Input
-                      value={values[category.id] || ""}
+                      value={values[String(category.id)] || ""}
                       onChange={(e) =>
-                        onValueChange(category.id, e.target.value, category.maxDigits)
+                        onValueChange(String(category.id), e.target.value, category.maxDigits)
                       }
                       placeholder={"0".repeat(category.maxDigits)}
                       className="min-w-0 flex-1 text-base"

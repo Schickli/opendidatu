@@ -32,7 +32,7 @@ export function PostenDeleteDialog({
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           Soll der Posten <strong>{postenName}</strong> wirklich gelöscht werden?
-          Alle zugehörigen Meldungen bleiben bestehen.
+          Alle zugehörigen Meldungen werden gelöscht.
         </p>
         <DialogFooter>
           <Button

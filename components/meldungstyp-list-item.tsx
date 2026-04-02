@@ -7,8 +7,8 @@ import type { MeldungType } from '@/lib/store'
 
 interface MeldungstypListItemProps {
   type: MeldungType
-  onEdit: (id: string) => void
-  onDelete: (id: string) => void
+  onEdit: (id: number) => void
+  onDelete: (id: number) => void
 }
 
 export function MeldungstypListItem({

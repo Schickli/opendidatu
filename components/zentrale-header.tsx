@@ -3,7 +3,7 @@
 import { useData } from '@/lib/data-context'
 
 export function ZentraleHeader() {
-  const { posten, meldungen } = useData()
+  const { posten, meldungen, error, isLoading } = useData()
 
   return (
     <header className="flex h-12 items-center justify-between border-b border-border bg-background px-4">
@@ -17,6 +17,8 @@ export function ZentraleHeader() {
         </span>
       </div>
       <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground">
+        {isLoading ? <span>Synchronisiert...</span> : null}
+        {error ? <span className="text-destructive">{error}</span> : null}
         <span>{posten.length} Posten</span>
         <div className="h-4 w-px bg-border" />
         <span>{meldungen.length} Meldungen</span>

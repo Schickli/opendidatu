@@ -4,9 +4,9 @@ import { MeldungListItem } from "./meldung-list-item";
 
 interface PostenPopupContentProps {
   posten: Posten
-  statusRows: Array<{ id: string; name: string; count: number; minPerHour: number }>
+  statusRows: Array<{ id: number; name: string; count: number; minPerHour: number }>
   recentMeldungen: Meldung[]
-  getTypeName: (typeId: string) => string
+  getTypeName: (typeId: number) => string
 }
 
 export function PostenPopupContent({

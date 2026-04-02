@@ -24,13 +24,13 @@ interface MeldungListItemProps {
   postenName?: string;
   showPostenName: boolean;
   onEdit: () => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: number) => void;
   showActions?: boolean;
   className?: string;
 }
 
-function formatTime(iso: string) {
-  const d = new Date(iso);
+function formatTime(timestamp: number) {
+  const d = new Date(timestamp);
   return d.toLocaleTimeString("de-CH", {
     hour: "2-digit",
     minute: "2-digit",

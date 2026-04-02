@@ -13,23 +13,23 @@ import {
 import { Input } from "@/components/ui/input";
 
 export interface KategorieFormRow {
-  id: string;
+  id: number;
   name: string;
   maxDigits: string;
 }
 
 interface MeldungstypDialogProps {
   open: boolean;
-  editingId: string | null;
+  editingId: number | null;
   typName: string;
   categories: KategorieFormRow[];
   minPerHour: string;
   onOpenChange: (open: boolean) => void;
   onTypNameChange: (value: string) => void;
   onAddKategorie: () => void;
-  onRemoveKategorie: (id: string) => void;
+  onRemoveKategorie: (id: number) => void;
   onUpdateKategorie: (
-    id: string,
+    id: number,
     field: "name" | "maxDigits",
     value: string,
   ) => void;

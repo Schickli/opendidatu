@@ -1,158 +1,209 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type {
   Posten,
   MeldungType,
   Meldung,
 } from './store'
 import {
-  generateId,
-  SAMPLE_POSTEN,
-  SAMPLE_MELDUNG_TYPES,
-  SAMPLE_MELDUNGEN,
-} from './store'
+  createMeldung as createMeldungRequest,
+  createMessageType as createMessageTypeRequest,
+  createPosten as createPostenRequest,
+  deleteMeldung as deleteMeldungRequest,
+  deleteMessageType as deleteMessageTypeRequest,
+  deletePosten as deletePostenRequest,
+  fetchBootstrapSnapshot,
+  updateMeldung as updateMeldungRequest,
+  updateMessageType as updateMessageTypeRequest,
+  updatePosten as updatePostenRequest,
+} from '@/lib/api-client'
+import type { DataSnapshot } from '@/lib/contracts'
 
 interface DataContextType {
   // Posten
   posten: Posten[]
-  addPosten: (data: Omit<Posten, 'id' | 'createdAt'>) => void
-  updatePosten: (id: string, data: Partial<Omit<Posten, 'id' | 'createdAt'>>) => void
-  deletePosten: (id: string) => void
+  addPosten: (data: Omit<Posten, 'id' | 'createdAt'>) => Promise<void>
+  updatePosten: (id: number, data: Partial<Omit<Posten, 'id' | 'createdAt'>>) => Promise<void>
+  deletePosten: (id: number) => Promise<void>
 
   // Message types
   messageTypes: MeldungType[]
-  addMessageType: (data: Omit<MeldungType, 'id'>) => void
-  updateMessageType: (id: string, data: Partial<Omit<MeldungType, 'id'>>) => void
-  deleteMessageType: (id: string) => void
+  addMessageType: (data: Omit<MeldungType, 'id'>) => Promise<void>
+  updateMessageType: (id: number, data: Partial<Omit<MeldungType, 'id'>>) => Promise<void>
+  deleteMessageType: (id: number) => Promise<void>
 
   // Meldungen
   meldungen: Meldung[]
-  addMeldung: (data: Omit<Meldung, 'id' | 'createdAt' | 'updatedAt'>) => void
+  addMeldung: (data: Omit<Meldung, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
   updateMeldung: (
-    id: string,
+    id: number,
     data: Partial<Pick<Meldung, 'postenId' | 'values' | 'comment' | 'isValid'>>
-  ) => void
-  deleteMeldung: (id: string) => void
+  ) => Promise<void>
+  deleteMeldung: (id: number) => Promise<void>
 
   // Selection
-  selectedPostenId: string | null
-  setSelectedPostenId: (id: string | null) => void
+  selectedPostenId: number | null
+  setSelectedPostenId: (id: number | null) => void
+  isLoading: boolean
+  error: string | null
+  refreshData: () => Promise<void>
 }
 
 const DataContext = createContext<DataContextType | null>(null)
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [posten, setPosten] = useState<Posten[]>(SAMPLE_POSTEN)
-  const [messageTypes, setMessageTypes] = useState<MeldungType[]>(
-    SAMPLE_MELDUNG_TYPES
+  const [posten, setPosten] = useState<Posten[]>([])
+  const [messageTypes, setMessageTypes] = useState<MeldungType[]>([])
+  const [meldungen, setMeldungen] = useState<Meldung[]>([])
+  const [selectedPostenId, setSelectedPostenId] = useState<number | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const applySnapshot = useCallback((snapshot: DataSnapshot) => {
+    setPosten(snapshot.posten)
+    setMessageTypes(snapshot.messageTypes)
+    setMeldungen(snapshot.meldungen)
+  }, [])
+
+  const runMutation = useCallback(
+    async (operation: () => Promise<DataSnapshot>) => {
+      const snapshot = await operation()
+      applySnapshot(snapshot)
+      setError(null)
+    },
+    [applySnapshot]
   )
-  const [meldungen, setMeldungen] = useState<Meldung[]>(SAMPLE_MELDUNGEN)
-  const [selectedPostenId, setSelectedPostenId] = useState<string | null>(null)
+
+  const refreshData = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const snapshot = await fetchBootstrapSnapshot()
+      applySnapshot(snapshot)
+      setError(null)
+    } catch (refreshError) {
+      setError(
+        refreshError instanceof Error
+          ? refreshError.message
+          : 'Daten konnten nicht geladen werden.'
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }, [applySnapshot])
+
+  useEffect(() => {
+    void refreshData()
+  }, [refreshData])
 
   const addPosten = useCallback(
-    (data: Omit<Posten, 'id' | 'createdAt'>) => {
-      setPosten((prev) => [
-        ...prev,
-        { ...data, id: generateId(), createdAt: new Date().toISOString() },
-      ])
+    async (data: Omit<Posten, 'id' | 'createdAt'>) => {
+      await runMutation(() => createPostenRequest(data))
     },
-    []
+    [runMutation]
   )
 
   const updatePosten = useCallback(
-    (id: string, data: Partial<Omit<Posten, 'id' | 'createdAt'>>) => {
-      setPosten((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...data } : p))
-      )
+    async (id: number, data: Partial<Omit<Posten, 'id' | 'createdAt'>>) => {
+      await runMutation(() => updatePostenRequest(id, data))
     },
-    []
+    [runMutation]
   )
 
-  const deletePosten = useCallback((id: string) => {
-    setPosten((prev) => prev.filter((p) => p.id !== id))
-  }, [])
+  const deletePosten = useCallback(
+    async (id: number) => {
+      await runMutation(() => deletePostenRequest(id))
+    },
+    [runMutation]
+  )
 
   const addMessageType = useCallback(
-    (data: Omit<MeldungType, 'id'>) => {
-      const id = generateId()
-      const categories = data.categories.map((category) => ({
-        ...category,
-        id: category.id || generateId(),
-      }))
-      setMessageTypes((prev) => [...prev, { ...data, id, categories }])
+    async (data: Omit<MeldungType, 'id'>) => {
+      await runMutation(() => createMessageTypeRequest(data))
     },
-    []
+    [runMutation]
   )
 
   const updateMessageType = useCallback(
-    (id: string, data: Partial<Omit<MeldungType, 'id'>>) => {
-      setMessageTypes((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, ...data } : t))
-      )
+    async (id: number, data: Partial<Omit<MeldungType, 'id'>>) => {
+      await runMutation(() => updateMessageTypeRequest(id, data))
     },
-    []
+    [runMutation]
   )
 
-  const deleteMessageType = useCallback((id: string) => {
-    setMessageTypes((prev) => prev.filter((t) => t.id !== id))
-  }, [])
+  const deleteMessageType = useCallback(
+    async (id: number) => {
+      await runMutation(() => deleteMessageTypeRequest(id))
+    },
+    [runMutation]
+  )
 
   const addMeldung = useCallback(
-    (data: Omit<Meldung, 'id' | 'createdAt' | 'updatedAt'>) => {
-      const now = new Date().toISOString()
-
-      setMeldungen((prev) => [
-        { ...data, id: generateId(), createdAt: now, updatedAt: now },
-        ...prev,
-      ])
+    async (data: Omit<Meldung, 'id' | 'createdAt' | 'updatedAt'>) => {
+      await runMutation(() => createMeldungRequest(data))
     },
-    []
+    [runMutation]
   )
 
   const updateMeldung = useCallback(
-    (
-      id: string,
+    async (
+      id: number,
       data: Partial<Pick<Meldung, 'postenId' | 'values' | 'comment' | 'isValid'>>
     ) => {
-      setMeldungen((prev) =>
-        prev.map((meldung) =>
-          meldung.id === id
-            ? {
-                ...meldung,
-                ...data,
-                updatedAt: new Date().toISOString(),
-              }
-            : meldung
-        )
-      )
+      await runMutation(() => updateMeldungRequest(id, data))
     },
-    []
+    [runMutation]
   )
 
-  const deleteMeldung = useCallback((id: string) => {
-    setMeldungen((prev) => prev.filter((n) => n.id !== id))
-  }, [])
+  const deleteMeldung = useCallback(
+    async (id: number) => {
+      await runMutation(() => deleteMeldungRequest(id))
+    },
+    [runMutation]
+  )
+
+  const value = useMemo(
+    () => ({
+      posten,
+      addPosten,
+      updatePosten,
+      deletePosten,
+      messageTypes,
+      addMessageType,
+      updateMessageType,
+      deleteMessageType,
+      meldungen,
+      addMeldung,
+      updateMeldung,
+      deleteMeldung,
+      selectedPostenId,
+      setSelectedPostenId,
+      isLoading,
+      error,
+      refreshData,
+    }),
+    [
+      posten,
+      addPosten,
+      updatePosten,
+      deletePosten,
+      messageTypes,
+      addMessageType,
+      updateMessageType,
+      deleteMessageType,
+      meldungen,
+      addMeldung,
+      updateMeldung,
+      deleteMeldung,
+      selectedPostenId,
+      isLoading,
+      error,
+      refreshData,
+    ]
+  )
 
   return (
-    <DataContext.Provider
-      value={{
-        posten,
-        addPosten,
-        updatePosten,
-        deletePosten,
-        messageTypes,
-        addMessageType,
-        updateMessageType,
-        deleteMessageType,
-        meldungen,
-        addMeldung,
-        updateMeldung,
-        deleteMeldung,
-        selectedPostenId,
-        setSelectedPostenId,
-      }}
-    >
+    <DataContext.Provider value={value}>
       {children}
     </DataContext.Provider>
   )

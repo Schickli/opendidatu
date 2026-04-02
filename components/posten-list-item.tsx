@@ -25,16 +25,16 @@ interface PostenListItemProps {
   isSelected: boolean;
   typesWithMinimum: MeldungType[];
   meldungen: Meldung[];
-  onToggleExpand: (postenId: string) => void;
-  onToggleSelect: (postenId: string, isSelected: boolean) => void;
-  onCreateMeldung: (postenId: string) => void;
+  onToggleExpand: (postenId: number) => void;
+  onToggleSelect: (postenId: number, isSelected: boolean) => void;
+  onCreateMeldung: (postenId: number) => void;
   onEdit: (posten: Posten) => void;
-  onDelete: (postenId: string) => void;
+  onDelete: (postenId: number) => void;
 }
 
 function countMeldungenLastHourByTyp(
-  postenId: string,
-  typeId: string,
+  postenId: number,
+  typeId: number,
   meldungen: Pick<Meldung, "postenId" | "typeId" | "createdAt" | "isValid">[]
 ) {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
@@ -43,12 +43,12 @@ function countMeldungenLastHourByTyp(
       meldung.isValid &&
       meldung.postenId === postenId &&
       meldung.typeId === typeId &&
-      new Date(meldung.createdAt).getTime() > oneHourAgo
+      meldung.createdAt > oneHourAgo
   ).length;
 }
 
 function getPostenOverallStatus(
-  postenId: string,
+  postenId: number,
   typesWithMinimum: MeldungType[],
   meldungen: Meldung[]
 ): "ok" | "warning" | "none" {

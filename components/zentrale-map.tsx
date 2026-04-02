@@ -17,12 +17,12 @@ import type { Posten, Meldung } from '@/lib/store'
 import { PostenPopupContent } from './posten-popup-content'
 
 function getMeldungenLastHourByTyp(
-  postenId: string,
-  typeId: string,
+  postenId: number,
+  typeId: number,
   meldungen: {
-    postenId: string
-    typeId: string
-    createdAt: string
+    postenId: number
+    typeId: number
+    createdAt: number
     isValid: boolean
   }[]
 ) {
@@ -32,7 +32,7 @@ function getMeldungenLastHourByTyp(
       n.isValid &&
       n.postenId === postenId &&
       n.typeId === typeId &&
-      new Date(n.createdAt).getTime() > oneHourAgo
+      n.createdAt > oneHourAgo
   ).length
 }
 
@@ -89,7 +89,7 @@ export function ZentraleMap() {
 
       const map = new MapLibreMap({
         container: mapRef.current,
-        style: 'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json',
+        style: '/api/map/style',
         center: [8.265, 46.786],
         zoom: 10,
         attributionControl: {},
@@ -170,7 +170,9 @@ export function ZentraleMap() {
         <PostenPopupContent
           posten={p}
           statusRows={statusRows}
-          recentMeldungen={postenMeldungen.slice(0, 3)}
+          recentMeldungen={[...postenMeldungen]
+            .sort((left, right) => right.createdAt - left.createdAt || right.id - left.id)
+            .slice(0, 3)}
           getTypeName={(typeId) =>
             messageTypes.find((entry) => entry.id === typeId)?.name || '?'
           }

@@ -22,11 +22,11 @@ export function MeldungstypPanel() {
   } = useData()
 
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [typName, setTypName] = useState('')
   const [categories, setCategories] = useState<KategorieFormRow[]>([])
   const [minPerHour, setMinPerHour] = useState('0')
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
 
   function openCreate() {
     setEditingId(null)
@@ -36,7 +36,7 @@ export function MeldungstypPanel() {
     setDialogOpen(true)
   }
 
-  function openEdit(id: string) {
+  function openEdit(id: number) {
     const type = messageTypes.find((entry) => entry.id === id)
     if (!type) return
     setEditingId(id)
@@ -59,12 +59,12 @@ export function MeldungstypPanel() {
     ])
   }
 
-  function removeKategorie(id: string) {
+  function removeKategorie(id: number) {
     setCategories((prev) => prev.filter((category) => category.id !== id))
   }
 
   function updateKategorie(
-    id: string,
+    id: number,
     field: 'name' | 'maxDigits',
     value: string
   ) {
@@ -73,7 +73,7 @@ export function MeldungstypPanel() {
     )
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!typName.trim()) return
     const validCategories = categories.filter((category) => category.name.trim())
     if (validCategories.length === 0) return
@@ -88,28 +88,36 @@ export function MeldungstypPanel() {
 
     const parsedMinPerHour = parseInt(minPerHour, 10)
 
-    if (editingId) {
-      updateMessageType(editingId, {
-        name: typName.trim(),
-        categories: parsedCategories,
-        minPerHour:
-          isNaN(parsedMinPerHour) || parsedMinPerHour < 0 ? 0 : parsedMinPerHour,
-      })
-    } else {
-      addMessageType({
-        name: typName.trim(),
-        categories: parsedCategories,
-        minPerHour:
-          isNaN(parsedMinPerHour) || parsedMinPerHour < 0 ? 0 : parsedMinPerHour,
-      })
-    }
+    try {
+      if (editingId) {
+        await updateMessageType(editingId, {
+          name: typName.trim(),
+          categories: parsedCategories,
+          minPerHour:
+            isNaN(parsedMinPerHour) || parsedMinPerHour < 0 ? 0 : parsedMinPerHour,
+        })
+      } else {
+        await addMessageType({
+          name: typName.trim(),
+          categories: parsedCategories,
+          minPerHour:
+            isNaN(parsedMinPerHour) || parsedMinPerHour < 0 ? 0 : parsedMinPerHour,
+        })
+      }
 
-    setDialogOpen(false)
+      setDialogOpen(false)
+    } catch (error) {
+      console.error(error)
+    }
   }
 
-  function handleDelete(id: string) {
-    deleteMessageType(id)
-    setDeleteConfirm(null)
+  async function handleDelete(id: number) {
+    try {
+      await deleteMessageType(id)
+      setDeleteConfirm(null)
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   return (

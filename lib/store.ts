@@ -1,49 +1,51 @@
 import type { SwissCoordinates } from './coordinates'
 
 export interface Posten {
-  id: string
+  id: number
   name: string
   coordinates: SwissCoordinates
   comment: string
-  createdAt: string
+  createdAt: number
 }
 
 export interface MeldungTypeCategory {
-  id: string
+  id: number
   name: string
   maxDigits: number
 }
 
 export interface MeldungType {
-  id: string
+  id: number
   name: string
   categories: MeldungTypeCategory[]
   minPerHour: number
 }
 
 export interface MeldungValue {
-  categoryId: string
+  categoryId: number
   categoryName: string
   value: string
 }
 
 export interface Meldung {
-  id: string
-  postenId: string
-  typeId: string
+  id: number
+  postenId: number
+  typeId: number
   values: MeldungValue[]
   comment: string
-  createdAt: string
-  updatedAt: string
+  createdAt: number
+  updatedAt: number
   isValid: boolean
 }
 
-export function generateId(): string {
-  return Math.random().toString(36).substring(2, 11) + Date.now().toString(36)
+let nextClientId = -1
+
+export function generateId(): number {
+  return nextClientId--
 }
 
-function isoMinutesAgo(minutesAgo: number): string {
-  return new Date(Date.now() - minutesAgo * 60 * 1000).toISOString()
+function timestampMinutesAgo(minutesAgo: number): number {
+  return Date.now() - minutesAgo * 60 * 1000
 }
 
 function buildNumericValue(maxDigits: number, seed: number): string {
@@ -53,135 +55,139 @@ function buildNumericValue(maxDigits: number, seed: number): string {
 
 export const SAMPLE_POSTEN: Posten[] = [
   {
-    id: 'p1',
+    id: 1,
     name: 'P Alpha',
     coordinates: { easting: 2600865, northing: 1199880 },
     comment: 'Kurzer Name, hohe Aktivitaet, sollte alle Minima sauber erfuellen.',
-    createdAt: isoMinutesAgo(720),
+    createdAt: timestampMinutesAgo(720),
   },
   {
-    id: 'p2',
+    id: 2,
     name: 'Langstreckenbeobachtungsposten Bravo-Suedhang',
     coordinates: { easting: 2603150, northing: 1197657 },
     comment: 'Langer Name, teilweise aktiv, einige Mindestwerte werden absichtlich verfehlt.',
-    createdAt: isoMinutesAgo(680),
+    createdAt: timestampMinutesAgo(680),
   },
   {
-    id: 'p3',
+    id: 3,
     name: 'C3',
     coordinates: { easting: 2598582, northing: 1200992 },
     comment: 'Kurzer Name, einzelne Typen fehlen in der letzten Stunde komplett.',
-    createdAt: isoMinutesAgo(640),
+    createdAt: timestampMinutesAgo(640),
   },
   {
-    id: 'p4',
+    id: 4,
     name: 'Vorgelagerter Beobachtungspunkt Delta-Westflanke',
     coordinates: { easting: 2597152, northing: 1202337 },
     comment: 'Viele aeltere Meldungen, aber keine aktuelle Erfuellung der Mindestwerte.',
-    createdAt: isoMinutesAgo(600),
+    createdAt: timestampMinutesAgo(600),
   },
   {
-    id: 'p5',
+    id: 5,
     name: 'E',
     coordinates: { easting: 2601794, northing: 1199257 },
     comment: 'Erfuellt mehrere Mindestwerte exakt auf der Grenze.',
-    createdAt: isoMinutesAgo(560),
+    createdAt: timestampMinutesAgo(560),
   },
   {
-    id: 'p6',
+    id: 6,
     name: 'Posten Foxtrot Innenhof',
     coordinates: { easting: 2604301, northing: 1196413 },
     comment: 'Niedrige Aktivitaet und hauptsaechlich Meldungen ohne Minimum.',
-    createdAt: isoMinutesAgo(520),
+    createdAt: timestampMinutesAgo(520),
   },
   {
-    id: 'p7',
+    id: 7,
     name: 'G',
     coordinates: { easting: 2600020, northing: 1204015 },
     comment: 'Sehr viele Wetter-Meldungen, andere Pflicht-Typen fehlen.',
-    createdAt: isoMinutesAgo(480),
+    createdAt: timestampMinutesAgo(480),
   },
   {
-    id: 'p8',
+    id: 8,
     name: 'Ausgedehnter Erfassungssektor Hotel-Ost-Nord mit Reserve',
     coordinates: { easting: 2606303, northing: 1197448 },
     comment: 'Hohe Last fuer Listen, Dialoge und Mindestpruefungen.',
-    createdAt: isoMinutesAgo(440),
+    createdAt: timestampMinutesAgo(440),
   },
 ]
 
 export const SAMPLE_MELDUNG_TYPES: MeldungType[] = [
   {
-    id: 'nt1',
+    id: 1,
     name: 'TER0',
     categories: [
-      { id: 'k1', name: 'Eff', maxDigits: 1 },
-      { id: 'k2', name: 'Zeit', maxDigits: 4 },
+      { id: 1, name: 'Eff', maxDigits: 1 },
+      { id: 2, name: 'Zeit', maxDigits: 4 },
     ],
     minPerHour: 1,
   },
   {
-    id: 'nt2',
+    id: 2,
     name: 'METEO-LANG',
     categories: [
-      { id: 'k3', name: 'Wind', maxDigits: 3 },
-      { id: 'k4', name: 'Sichtweite', maxDigits: 4 },
-      { id: 'k5', name: 'Temperatur', maxDigits: 2 },
-      { id: 'k6', name: 'Bewoelkung', maxDigits: 2 },
-      { id: 'k7', name: 'NiederschlagsartLang', maxDigits: 2 },
+      { id: 3, name: 'Wind', maxDigits: 3 },
+      { id: 4, name: 'Sichtweite', maxDigits: 4 },
+      { id: 5, name: 'Temperatur', maxDigits: 2 },
+      { id: 6, name: 'Bewoelkung', maxDigits: 2 },
+      { id: 7, name: 'NiederschlagsartLang', maxDigits: 2 },
     ],
     minPerHour: 2,
   },
   {
-    id: 'nt3',
+    id: 3,
     name: 'LAGEBEURTEILUNG',
     categories: [
-      { id: 'k8', name: 'Abschnitt', maxDigits: 2 },
-      { id: 'k9', name: 'Beobachtungsintensitaet', maxDigits: 1 },
-      { id: 'k10', name: 'Kontaktzeit', maxDigits: 4 },
-      { id: 'k11', name: 'Raumtiefe', maxDigits: 2 },
-      { id: 'k12', name: 'Objektklasse', maxDigits: 2 },
-      { id: 'k13', name: 'Zusatz', maxDigits: 3 },
+      { id: 8, name: 'Abschnitt', maxDigits: 2 },
+      { id: 9, name: 'Beobachtungsintensitaet', maxDigits: 1 },
+      { id: 10, name: 'Kontaktzeit', maxDigits: 4 },
+      { id: 11, name: 'Raumtiefe', maxDigits: 2 },
+      { id: 12, name: 'Objektklasse', maxDigits: 2 },
+      { id: 13, name: 'Zusatz', maxDigits: 3 },
     ],
     minPerHour: 3,
   },
   {
-    id: 'nt4',
+    id: 4,
     name: 'Q',
-    categories: [{ id: 'k14', name: 'Q', maxDigits: 1 }],
+    categories: [{ id: 14, name: 'Q', maxDigits: 1 }],
     minPerHour: 0,
   },
   {
-    id: 'nt5',
+    id: 5,
     name: 'BEOBABSCHNITT-DETAIL',
     categories: [
-      { id: 'k15', name: 'Untersektor', maxDigits: 2 },
-      { id: 'k16', name: 'Prioritaet', maxDigits: 1 },
-      { id: 'k17', name: 'Wirkraum', maxDigits: 2 },
-      { id: 'k18', name: 'Eigenlage', maxDigits: 2 },
-      { id: 'k19', name: 'Mittelansatz', maxDigits: 2 },
-      { id: 'k20', name: 'Auffaelligkeitsgrad', maxDigits: 1 },
-      { id: 'k21', name: 'NachfuehrungscodeExtremLang', maxDigits: 3 },
+      { id: 15, name: 'Untersektor', maxDigits: 2 },
+      { id: 16, name: 'Prioritaet', maxDigits: 1 },
+      { id: 17, name: 'Wirkraum', maxDigits: 2 },
+      { id: 18, name: 'Eigenlage', maxDigits: 2 },
+      { id: 19, name: 'Mittelansatz', maxDigits: 2 },
+      { id: 20, name: 'Auffaelligkeitsgrad', maxDigits: 1 },
+      { id: 21, name: 'NachfuehrungscodeExtremLang', maxDigits: 3 },
     ],
     minPerHour: 4,
   },
   {
-    id: 'nt6',
+    id: 6,
     name: 'NAH',
     categories: [
-      { id: 'k22', name: 'N', maxDigits: 1 },
-      { id: 'k23', name: 'Kurzreferenz', maxDigits: 2 },
+      { id: 22, name: 'N', maxDigits: 1 },
+      { id: 23, name: 'Kurzreferenz', maxDigits: 2 },
     ],
     minPerHour: 0,
   },
 ]
 
-const meldungTypeById = Object.fromEntries(
+const meldungTypeById = new Map(
   SAMPLE_MELDUNG_TYPES.map((meldungType) => [meldungType.id, meldungType])
-) as Record<string, MeldungType>
+)
 
-function createValuesForType(typeId: string, seed: number): MeldungValue[] {
-  const meldungType = meldungTypeById[typeId]
+function createValuesForType(typeId: number, seed: number): MeldungValue[] {
+  const meldungType = meldungTypeById.get(typeId)
+
+  if (!meldungType) {
+    throw new Error(`Unbekannter Meldungstyp: ${typeId}`)
+  }
 
   return meldungType.categories.map((category, index) => ({
     categoryId: category.id,
@@ -191,14 +197,14 @@ function createValuesForType(typeId: string, seed: number): MeldungValue[] {
 }
 
 function createMeldung(
-  id: string,
-  postenId: string,
-  typeId: string,
+  id: number,
+  postenId: number,
+  typeId: number,
   minutesAgo: number,
   seed: number,
   comment = ''
 ): Meldung {
-  const createdAt = isoMinutesAgo(minutesAgo)
+  const createdAt = timestampMinutesAgo(minutesAgo)
 
   return {
     id,
@@ -213,15 +219,16 @@ function createMeldung(
 }
 
 function createSeries(
-  postenId: string,
-  typeId: string,
+  postenId: number,
+  typeId: number,
   minuteOffsets: number[],
+  startId: number,
   startSeed: number,
   commentPrefix: string
 ): Meldung[] {
   return minuteOffsets.map((minutesAgo, index) =>
     createMeldung(
-      `${postenId}-${typeId}-${index + 1}`,
+      startId + index,
       postenId,
       typeId,
       minutesAgo,
@@ -232,49 +239,48 @@ function createSeries(
 }
 
 export const SAMPLE_MELDUNGEN: Meldung[] = [
-  ...createSeries('p1', 'nt1', [5, 18], 10, 'TER0 bestaetigt'),
-  ...createSeries('p1', 'nt2', [7, 22, 41], 20, 'METEO stabil'),
-  ...createSeries('p1', 'nt3', [9, 27, 48], 30, 'Lagebild beobachtet'),
-  ...createSeries('p1', 'nt5', [11, 19, 33, 52], 40, 'Abschnitt vollstaendig'),
-  ...createSeries('p1', 'nt4', [63, 96, 130], 50, 'Zusatz ohne Minimum'),
+  ...createSeries(1, 1, [5, 18], 1, 10, 'TER0 bestaetigt'),
+  ...createSeries(1, 2, [7, 22, 41], 3, 20, 'METEO stabil'),
+  ...createSeries(1, 3, [9, 27, 48], 6, 30, 'Lagebild beobachtet'),
+  ...createSeries(1, 5, [11, 19, 33, 52], 9, 40, 'Abschnitt vollstaendig'),
+  ...createSeries(1, 4, [63, 96, 130], 13, 50, 'Zusatz ohne Minimum'),
 
-  ...createSeries('p2', 'nt1', [8], 60, 'Nur knapp aktiv'),
-  ...createSeries('p2', 'nt2', [16], 70, 'Zu wenig Wetterdaten'),
-  ...createSeries('p2', 'nt3', [12, 34, 55], 80, 'Lage knapp ausreichend'),
-  ...createSeries('p2', 'nt5', [21, 49], 90, 'Detailmeldungen fehlen'),
-  ...createSeries('p2', 'nt6', [73, 140], 100, 'Kurzmeldung'),
+  ...createSeries(2, 1, [8], 16, 60, 'Nur knapp aktiv'),
+  ...createSeries(2, 2, [16], 17, 70, 'Zu wenig Wetterdaten'),
+  ...createSeries(2, 3, [12, 34, 55], 18, 80, 'Lage knapp ausreichend'),
+  ...createSeries(2, 5, [21, 49], 21, 90, 'Detailmeldungen fehlen'),
+  ...createSeries(2, 6, [73, 140], 23, 100, 'Kurzmeldung'),
 
-  ...createSeries('p3', 'nt2', [6, 38], 110, 'Wetter erfasst'),
-  ...createSeries('p3', 'nt3', [14], 120, 'Lage unvollstaendig'),
-  ...createSeries('p3', 'nt5', [10, 24, 37, 58], 130, 'Detailreihe gut'),
-  ...createSeries('p3', 'nt4', [82], 140, 'Freier Zusatz'),
+  ...createSeries(3, 2, [6, 38], 25, 110, 'Wetter erfasst'),
+  ...createSeries(3, 3, [14], 27, 120, 'Lage unvollstaendig'),
+  ...createSeries(3, 5, [10, 24, 37, 58], 28, 130, 'Detailreihe gut'),
+  ...createSeries(3, 4, [82], 32, 140, 'Freier Zusatz'),
 
-  ...createSeries('p4', 'nt1', [75, 128], 150, 'Altmeldung TER0'),
-  ...createSeries('p4', 'nt2', [91, 143, 201], 160, 'Altmeldung METEO'),
-  ...createSeries('p4', 'nt3', [88, 166], 170, 'Altmeldung Lage'),
-  ...createSeries('p4', 'nt5', [77, 132, 188], 180, 'Altmeldung Abschnitt'),
+  ...createSeries(4, 1, [75, 128], 33, 150, 'Altmeldung TER0'),
+  ...createSeries(4, 2, [91, 143, 201], 35, 160, 'Altmeldung METEO'),
+  ...createSeries(4, 3, [88, 166], 38, 170, 'Altmeldung Lage'),
+  ...createSeries(4, 5, [77, 132, 188], 40, 180, 'Altmeldung Abschnitt'),
 
-  ...createSeries('p5', 'nt1', [4], 190, 'Exakt auf Minimum'),
-  ...createSeries('p5', 'nt2', [17, 44], 200, 'Exakt zwei Wettermeldungen'),
-  ...createSeries('p5', 'nt3', [13, 29, 57], 210, 'Exakt drei Lagemeldungen'),
-  ...createSeries('p5', 'nt5', [15, 26, 39, 54], 220, 'Exakt vier Detailmeldungen'),
-  ...createSeries('p5', 'nt6', [95], 230, 'Zusatzmeldung'),
+  ...createSeries(5, 1, [4], 43, 190, 'Exakt auf Minimum'),
+  ...createSeries(5, 2, [17, 44], 44, 200, 'Exakt zwei Wettermeldungen'),
+  ...createSeries(5, 3, [13, 29, 57], 46, 210, 'Exakt drei Lagemeldungen'),
+  ...createSeries(5, 5, [15, 26, 39, 54], 49, 220, 'Exakt vier Detailmeldungen'),
+  ...createSeries(5, 6, [95], 53, 230, 'Zusatzmeldung'),
 
-  ...createSeries('p6', 'nt4', [12, 31, 67], 240, 'Q-Meldung'),
-  ...createSeries('p6', 'nt6', [9, 43], 250, 'NAH-Meldung'),
-  ...createSeries('p6', 'nt1', [119], 260, 'Zu alt fuer Minimum'),
+  ...createSeries(6, 4, [12, 31, 67], 54, 240, 'Q-Meldung'),
+  ...createSeries(6, 6, [9, 43], 57, 250, 'NAH-Meldung'),
+  ...createSeries(6, 1, [119], 59, 260, 'Zu alt fuer Minimum'),
 
-  ...createSeries('p7', 'nt2', [5, 14, 23, 36, 50], 270, 'Sehr viele Wetterdaten'),
-  ...createSeries('p7', 'nt4', [18, 61, 102], 280, 'Freie Zusatzmeldung'),
-  ...createSeries('p7', 'nt6', [28], 290, 'Kurzer Zusatz'),
+  ...createSeries(7, 2, [5, 14, 23, 36, 50], 60, 270, 'Sehr viele Wetterdaten'),
+  ...createSeries(7, 4, [18, 61, 102], 65, 280, 'Freie Zusatzmeldung'),
+  ...createSeries(7, 6, [28], 68, 290, 'Kurzer Zusatz'),
 
-  ...createSeries('p8', 'nt1', [7], 300, 'Grenzwert erreicht'),
-  ...createSeries('p8', 'nt2', [6, 25], 310, 'Wetterminimum erreicht'),
-  ...createSeries('p8', 'nt3', [8, 20, 32, 47], 320, 'Lagebild intensiv'),
-  ...createSeries('p8', 'nt5', [9, 18, 27, 35, 53], 330, 'Sehr viele Detailmeldungen'),
-  ...createSeries('p8', 'nt4', [64, 84, 124, 155], 340, 'Historische Zusatzmeldung'),
-  ...createSeries('p8', 'nt6', [11, 59], 350, 'Kurze Nahmeldung'),
+  ...createSeries(8, 1, [7], 69, 300, 'Grenzwert erreicht'),
+  ...createSeries(8, 2, [6, 25], 70, 310, 'Wetterminimum erreicht'),
+  ...createSeries(8, 3, [8, 20, 32, 47], 72, 320, 'Lagebild intensiv'),
+  ...createSeries(8, 5, [9, 18, 27, 35, 53], 76, 330, 'Sehr viele Detailmeldungen'),
+  ...createSeries(8, 4, [64, 84, 124, 155], 81, 340, 'Historische Zusatzmeldung'),
+  ...createSeries(8, 6, [11, 59], 85, 350, 'Kurze Nahmeldung'),
 ].sort(
-  (left, right) =>
-    new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+  (left, right) => right.createdAt - left.createdAt
 )

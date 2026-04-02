@@ -30,7 +30,7 @@ export const emptyPostenForm: PostenFormData = {
 interface PostenDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  editingPostenId: string | null;
+  editingPostenId: number | null;
   postenForm: PostenFormData;
   setPostenForm: Dispatch<SetStateAction<PostenFormData>>;
   onSave: () => void;

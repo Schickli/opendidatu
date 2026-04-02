@@ -1,28 +1,51 @@
 # opendidatu
 
-Tries to be a simple alternative to Didatu, with a focus on eas of use. The main goal is to have something for trainig pourposes until a new full featured application is in place.
-
-## Installation
-
-The whole application is meant to run on a docker container, so you need to have docker installed on your machine. Then you can run the following command to build and start the application:
-
-```bash
-docker compose up --build
-```
-
-The application will be available at `localhost:8000`. You can access the panel at `localhost:8000`
-If you want to access the applciation from another machine, you need to change the `localhost` to the IP address of the machine where the application is running.
-
-If you want the applciation to be available on the local network under `opendidatu.local`, you need to add the following line to your `/etc/hosts` file:
-
-```
-127.0.0.1 opendidatu.local
-```
-
-Then you can access the application at `http://opendidatu.local:8000`.
+Tries to be a simple alternative to Didatu, with a focus on ease of use. The main goal is to have something for training purposes until a new full featured application is in place.
 
 ## Database
 
-The database is a simple SQLite database that is stored in the `data` folder. You can access it using any SQLite client. If you want to use a existing database, you can copy it to the `data` folder and it will be used by the application.
+By default, the SQLite database is created at `./data/opendidatu.sqlite`.
 
-When there is no database file matching the expected name, the application will try to create a new one.
+You can override that location with:
+
+```bash
+DATABASE_PATH=/absolute/path/to/opendidatu.sqlite
+```
+
+Useful database commands:
+
+```bash
+pnpm db:generate
+pnpm db:push
+pnpm db:studio
+```
+
+## Map Assets
+
+The app now serves the map style through `/api/map/style` and can serve vector tiles from a local MBTiles file through `/api/map/tiles/{z}/{x}/{y}`.
+
+Relevant environment variables:
+
+- `MAP_MBTILES_PATH`: absolute or repo-relative path to the `.mbtiles` file
+- `MAP_METADATA_JSON_PATH`: optional path to the tiles metadata json
+- `MAP_STYLE_JSON_PATH`: optional path to a local style json template
+- `MAP_STYLE_URL`: optional remote style URL fallback if no local style file is provided
+- `MAP_GLYPHS_URL`: optional override for glyphs endpoint or asset URL
+- `MAP_SPRITE_URL`: optional override for sprite endpoint or asset URL
+
+If `MAP_MBTILES_PATH` is set, vector tile sources in the served style are rewritten to the local tile route automatically.
+
+## Docker
+
+The Docker packaging from the architecture plan is still the next major step. The codebase now has the server-side pieces needed for that containerization work, but the image and runtime packaging are not implemented yet.
+
+## Local Development
+
+Install dependencies and start the app:
+
+```bash
+pnpm install
+pnpm dev
+```
+
+The application is then available at `http://localhost:3000`.

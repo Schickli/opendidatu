@@ -44,24 +44,24 @@ export function PostenMeldungenPanel() {
   } = useData();
 
   const [postenDialogOpen, setPostenDialogOpen] = useState(false);
-  const [editingPostenId, setEditingPostenId] = useState<string | null>(null);
+  const [editingPostenId, setEditingPostenId] = useState<number | null>(null);
   const [postenForm, setPostenForm] = useState<PostenFormData>(emptyPostenForm);
-  const [deletePostenConfirm, setDeletePostenConfirm] = useState<string | null>(
+  const [deletePostenConfirm, setDeletePostenConfirm] = useState<number | null>(
     null
   );
 
   const [meldungDialogOpen, setMeldungDialogOpen] = useState(false);
-  const [editingMeldungId, setEditingMeldungId] = useState<string | null>(null);
+  const [editingMeldungId, setEditingMeldungId] = useState<number | null>(null);
   const [selectedTypeId, setSelectedTypeId] = useState("");
   const [selectedPostenForMeldung, setSelectedPostenForMeldung] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
   const [meldungComment, setMeldungComment] = useState("");
   const [meldungIsValid, setMeldungIsValid] = useState(true);
-  const [deleteMeldungConfirm, setDeleteMeldungConfirm] = useState<string | null>(
+  const [deleteMeldungConfirm, setDeleteMeldungConfirm] = useState<number | null>(
     null
   );
 
-  const [expandedPosten, setExpandedPosten] = useState<Set<string>>(new Set());
+  const [expandedPosten, setExpandedPosten] = useState<Set<number>>(new Set());
 
   const typesWithMinimum = useMemo(
     () => messageTypes.filter((type) => type.minPerHour > 0),
@@ -69,8 +69,13 @@ export function PostenMeldungenPanel() {
   );
 
   const filteredMeldungen = useMemo(() => {
-    if (!selectedPostenId) return meldungen;
-    return meldungen.filter((n) => n.postenId === selectedPostenId);
+    const visibleMeldungen = !selectedPostenId
+      ? meldungen
+      : meldungen.filter((n) => n.postenId === selectedPostenId);
+
+    return [...visibleMeldungen].sort(
+      (left, right) => right.createdAt - left.createdAt || right.id - left.id
+    );
   }, [meldungen, selectedPostenId]);
 
   useEffect(() => {
@@ -87,7 +92,7 @@ export function PostenMeldungenPanel() {
     });
   }, [selectedPostenId]);
 
-  const selectedType = messageTypes.find((type) => type.id === selectedTypeId);
+  const selectedType = messageTypes.find((type) => String(type.id) === selectedTypeId);
   const editingMeldung = useMemo(
     () => meldungen.find((meldung) => meldung.id === editingMeldungId) ?? null,
     [editingMeldungId, meldungen]
@@ -121,7 +126,7 @@ export function PostenMeldungenPanel() {
     setPostenDialogOpen(true);
   }
 
-  function handleSavePosten() {
+  async function handleSavePosten() {
     const coordinates = parseSwissCoordinateInput({
       easting: postenForm.easting,
       northing: postenForm.northing,
@@ -134,25 +139,40 @@ export function PostenMeldungenPanel() {
       comment: postenForm.comment.trim(),
     };
 
-    if (editingPostenId) {
-      updatePosten(editingPostenId, data);
-    } else {
-      addPosten(data);
+    try {
+      if (editingPostenId) {
+        await updatePosten(editingPostenId, data);
+      } else {
+        await addPosten(data);
+      }
+
+      setPostenDialogOpen(false);
+      setPostenForm(emptyPostenForm);
+    } catch (error) {
+      console.error(error);
     }
-    setPostenDialogOpen(false);
-    setPostenForm(emptyPostenForm);
   }
 
-  function handleDeletePosten(id: string) {
-    deletePosten(id);
-    setDeletePostenConfirm(null);
-    if (selectedPostenId === id) setSelectedPostenId(null);
+  async function handleDeletePosten(id: number) {
+    try {
+      await deletePosten(id);
+      setDeletePostenConfirm(null);
+      if (selectedPostenId === id) setSelectedPostenId(null);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
-  function openCreateMeldung(postenId?: string) {
+  function openCreateMeldung(postenId?: number) {
     setEditingMeldungId(null);
     setSelectedTypeId("");
-    setSelectedPostenForMeldung(postenId || selectedPostenId || "");
+    setSelectedPostenForMeldung(
+      postenId !== undefined
+        ? String(postenId)
+        : selectedPostenId !== null
+          ? String(selectedPostenId)
+          : ""
+    );
     setValues({});
     setMeldungComment("");
     setMeldungIsValid(true);
@@ -161,10 +181,12 @@ export function PostenMeldungenPanel() {
 
   function openEditMeldung(meldung: Meldung) {
     setEditingMeldungId(meldung.id);
-    setSelectedTypeId(meldung.typeId);
-    setSelectedPostenForMeldung(meldung.postenId);
+    setSelectedTypeId(String(meldung.typeId));
+    setSelectedPostenForMeldung(String(meldung.postenId));
     setValues(
-      Object.fromEntries(meldung.values.map((valueItem) => [valueItem.categoryId, valueItem.value]))
+      Object.fromEntries(
+        meldung.values.map((valueItem) => [String(valueItem.categoryId), valueItem.value])
+      )
     );
     setMeldungComment(meldung.comment);
     setMeldungIsValid(meldung.isValid);
@@ -186,10 +208,10 @@ export function PostenMeldungenPanel() {
     setValues((prev) => ({ ...prev, [categoryId]: cleaned }));
   }
 
-  function handleSaveMeldung() {
+  async function handleSaveMeldung() {
     if (!selectedTypeId || !selectedPostenForMeldung || !selectedType) return;
     const allFilled = selectedType.categories.every(
-      (category) => values[category.id] && values[category.id].length > 0
+      (category) => values[String(category.id)] && values[String(category.id)].length > 0
     );
     if (!allFilled) return;
 
@@ -197,37 +219,45 @@ export function PostenMeldungenPanel() {
       (category) => ({
         categoryId: category.id,
         categoryName: category.name,
-        value: values[category.id] || "",
+        value: values[String(category.id)] || "",
       })
     );
 
-    if (editingMeldungId) {
-      updateMeldung(editingMeldungId, {
-        postenId: selectedPostenForMeldung,
-        values: meldungValues,
-        comment: meldungComment.trim(),
-        isValid: meldungIsValid,
-      });
-    } else {
-      addMeldung({
-        postenId: selectedPostenForMeldung,
-        typeId: selectedTypeId,
-        values: meldungValues,
-        comment: meldungComment.trim(),
-        isValid: meldungIsValid,
-      });
+    try {
+      if (editingMeldungId) {
+        await updateMeldung(editingMeldungId, {
+          postenId: Number(selectedPostenForMeldung),
+          values: meldungValues,
+          comment: meldungComment.trim(),
+          isValid: meldungIsValid,
+        });
+      } else {
+        await addMeldung({
+          postenId: Number(selectedPostenForMeldung),
+          typeId: Number(selectedTypeId),
+          values: meldungValues,
+          comment: meldungComment.trim(),
+          isValid: meldungIsValid,
+        });
+      }
+
+      setMeldungDialogOpen(false);
+      resetMeldungForm();
+    } catch (error) {
+      console.error(error);
     }
-
-    setMeldungDialogOpen(false);
-    resetMeldungForm();
   }
 
-  function handleDeleteMeldung(id: string) {
-    deleteMeldung(id);
-    setDeleteMeldungConfirm(null);
+  async function handleDeleteMeldung(id: number) {
+    try {
+      await deleteMeldung(id);
+      setDeleteMeldungConfirm(null);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
-  function toggleExpand(postenId: string) {
+  function toggleExpand(postenId: number) {
     setExpandedPosten((prev) => {
       const next = new Set(prev);
       if (next.has(postenId)) {
@@ -239,7 +269,7 @@ export function PostenMeldungenPanel() {
     });
   }
 
-  function getTypName(id: string) {
+  function getTypName(id: number) {
     return messageTypes.find((type) => type.id === id)?.name || "?";
   }
 
@@ -264,7 +294,7 @@ export function PostenMeldungenPanel() {
 
       <div className="flex-1 overflow-y-auto">
         {posten.length === 0 ? (
-          <div className="p-4 text-center text-xs text-muted-foreground">
+          <div className="p-3 text-xs text-muted-foreground">
             Keine Posten vorhanden. Erstellen Sie einen neuen Posten.
           </div>
         ) : (
@@ -308,7 +338,7 @@ export function PostenMeldungenPanel() {
             </span>
           </div>
           {filteredMeldungen.length === 0 ? (
-            <div className="px-3 pb-3 text-xs text-muted-foreground">
+            <div className="p-3 text-xs text-muted-foreground">
               Keine Meldungen vorhanden
             </div>
           ) : (
