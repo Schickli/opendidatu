@@ -43,10 +43,30 @@ export const meldungSchema = z.object({
   isValid: z.boolean(),
 })
 
-export const dataSnapshotSchema = z.object({
+export const meldungLastHourCountSchema = z.object({
+  postenId: z.number().int().positive(),
+  typeId: z.number().int().positive(),
+  count: z.number().int().nonnegative(),
+})
+
+export const postenRecentMeldungenSchema = z.object({
+  postenId: z.number().int().positive(),
+  meldungen: z.array(meldungSchema),
+})
+
+export const bootstrapSnapshotSchema = z.object({
   posten: z.array(postSchema),
   messageTypes: z.array(meldungTypeSchema),
+  meldungCount: z.number().int().nonnegative(),
+  lastHourCounts: z.array(meldungLastHourCountSchema),
+  recentMeldungenByPosten: z.array(postenRecentMeldungenSchema),
+})
+
+export const meldungenPageSchema = z.object({
   meldungen: z.array(meldungSchema),
+  totalCount: z.number().int().nonnegative(),
+  hasMore: z.boolean(),
+  nextCursor: z.string().nullable(),
 })
 
 export const createPostenSchema = postSchema.omit({
@@ -77,7 +97,10 @@ export const updateMeldungSchema = z.object({
   isValid: z.boolean().optional(),
 })
 
-export type DataSnapshot = z.infer<typeof dataSnapshotSchema>
+export type BootstrapSnapshot = z.infer<typeof bootstrapSnapshotSchema>
+export type MeldungenPage = z.infer<typeof meldungenPageSchema>
+export type MeldungLastHourCount = z.infer<typeof meldungLastHourCountSchema>
+export type PostenRecentMeldungen = z.infer<typeof postenRecentMeldungenSchema>
 export type CreatePostenInput = z.infer<typeof createPostenSchema>
 export type UpdatePostenInput = z.infer<typeof updatePostenSchema>
 export type CreateMessageTypeInput = z.infer<typeof createMessageTypeSchema>

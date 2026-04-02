@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getDataSnapshot } from '@/lib/server/repository'
+import { getBootstrapSnapshot } from '@/lib/server/repository'
 
 export const runtime = 'nodejs'
 
 export async function GET() {
-  return NextResponse.json(getDataSnapshot())
+  return NextResponse.json(getBootstrapSnapshot())
 }

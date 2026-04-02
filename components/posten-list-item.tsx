@@ -17,14 +17,14 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import type { Meldung, MeldungType, Posten } from "@/lib/store";
+import type { MeldungType, Posten } from "@/lib/store";
 
 interface PostenListItemProps {
   posten: Posten;
   isExpanded: boolean;
   isSelected: boolean;
   typesWithMinimum: MeldungType[];
-  meldungen: Meldung[];
+  getLastHourCount: (postenId: number, typeId: number) => number;
   onToggleExpand: (postenId: number) => void;
   onToggleSelect: (postenId: number, isSelected: boolean) => void;
   onCreateMeldung: (postenId: number) => void;
@@ -32,30 +32,15 @@ interface PostenListItemProps {
   onDelete: (postenId: number) => void;
 }
 
-function countMeldungenLastHourByTyp(
-  postenId: number,
-  typeId: number,
-  meldungen: Pick<Meldung, "postenId" | "typeId" | "createdAt" | "isValid">[]
-) {
-  const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  return meldungen.filter(
-    (meldung) =>
-      meldung.isValid &&
-      meldung.postenId === postenId &&
-      meldung.typeId === typeId &&
-      meldung.createdAt > oneHourAgo
-  ).length;
-}
-
 function getPostenOverallStatus(
   postenId: number,
   typesWithMinimum: MeldungType[],
-  meldungen: Meldung[]
+  getLastHourCount: (postenId: number, typeId: number) => number
 ): "ok" | "warning" | "none" {
   if (typesWithMinimum.length === 0) return "none";
 
   const allFulfilled = typesWithMinimum.every((type) => {
-    const count = countMeldungenLastHourByTyp(postenId, type.id, meldungen);
+    const count = getLastHourCount(postenId, type.id);
     return count >= type.minPerHour;
   });
 
@@ -67,7 +52,7 @@ export function PostenListItem({
   isExpanded,
   isSelected,
   typesWithMinimum,
-  meldungen,
+  getLastHourCount,
   onToggleExpand,
   onToggleSelect,
   onCreateMeldung,
@@ -77,7 +62,7 @@ export function PostenListItem({
   const overallStatus = getPostenOverallStatus(
     posten.id,
     typesWithMinimum,
-    meldungen
+    getLastHourCount
   );
 
   return (
@@ -183,11 +168,7 @@ export function PostenListItem({
                 Status letzte Stunde
               </div>
               {typesWithMinimum.map((type) => {
-                const count = countMeldungenLastHourByTyp(
-                  posten.id,
-                  type.id,
-                  meldungen
-                );
+                const count = getLastHourCount(posten.id, type.id);
                 const fulfilled = count >= type.minPerHour;
 
                 return (

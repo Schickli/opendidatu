@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   parseSwissCoordinateInput,
   toSwissCoordinateInput,
@@ -35,13 +35,22 @@ export function PostenMeldungenPanel() {
     updatePosten,
     deletePosten,
     meldungen,
+    meldungenTotalCount,
+    hasMoreMeldungen,
+    isLoadingMeldungen,
+    isLoadingMoreMeldungen,
+    loadMoreMeldungen,
     addMeldung,
     updateMeldung,
     deleteMeldung,
+    lastHourCounts,
     messageTypes,
     selectedPostenId,
     setSelectedPostenId,
   } = useData();
+
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const [postenDialogOpen, setPostenDialogOpen] = useState(false);
   const [editingPostenId, setEditingPostenId] = useState<number | null>(null);
@@ -68,15 +77,15 @@ export function PostenMeldungenPanel() {
     [messageTypes]
   );
 
-  const filteredMeldungen = useMemo(() => {
-    const visibleMeldungen = !selectedPostenId
-      ? meldungen
-      : meldungen.filter((n) => n.postenId === selectedPostenId);
-
-    return [...visibleMeldungen].sort(
-      (left, right) => right.createdAt - left.createdAt || right.id - left.id
+  const lastHourCountLookup = useMemo(() => {
+    return new Map(
+      lastHourCounts.map((entry) => [`${entry.postenId}:${entry.typeId}`, entry.count])
     );
-  }, [meldungen, selectedPostenId]);
+  }, [lastHourCounts]);
+
+  function getLastHourCount(postenId: number, typeId: number) {
+    return lastHourCountLookup.get(`${postenId}:${typeId}`) ?? 0;
+  }
 
   useEffect(() => {
     if (!selectedPostenId) return;
@@ -97,6 +106,33 @@ export function PostenMeldungenPanel() {
     () => meldungen.find((meldung) => meldung.id === editingMeldungId) ?? null,
     [editingMeldungId, meldungen]
   );
+
+  useEffect(() => {
+    const root = scrollContainerRef.current;
+    const sentinel = loadMoreRef.current;
+
+    if (!root || !sentinel || !hasMoreMeldungen) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMoreMeldungen();
+        }
+      },
+      {
+        root,
+        rootMargin: "0px 0px 240px 0px",
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMoreMeldungen, loadMoreMeldungen, meldungen.length, selectedPostenId]);
 
   function resetMeldungForm() {
     setEditingMeldungId(null);
@@ -292,7 +328,7 @@ export function PostenMeldungenPanel() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
         {posten.length === 0 ? (
           <div className="p-3 text-xs text-muted-foreground">
             Keine Posten vorhanden. Erstellen Sie einen neuen Posten.
@@ -310,7 +346,7 @@ export function PostenMeldungenPanel() {
                   isExpanded={isExpanded}
                   isSelected={isSelected}
                   typesWithMinimum={typesWithMinimum}
-                  meldungen={meldungen}
+                  getLastHourCount={getLastHourCount}
                   onToggleExpand={toggleExpand}
                   onToggleSelect={(postenId, selected) =>
                     setSelectedPostenId(selected ? null : postenId)
@@ -333,17 +369,18 @@ export function PostenMeldungenPanel() {
                   }`
                 : `Alle Meldungen`}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {filteredMeldungen.length}
-            </span>
           </div>
-          {filteredMeldungen.length === 0 ? (
+          {isLoadingMeldungen ? (
+            <div className="p-3 text-xs text-muted-foreground">
+              Meldungen werden geladen...
+            </div>
+          ) : meldungen.length === 0 ? (
             <div className="p-3 text-xs text-muted-foreground">
               Keine Meldungen vorhanden
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {filteredMeldungen.map((n) => {
+              {meldungen.map((n) => {
                 return (
                   <MeldungListItem
                     key={n.id}
@@ -356,6 +393,11 @@ export function PostenMeldungenPanel() {
                   />
                 );
               })}
+              <div ref={loadMoreRef} className="px-3 py-3 text-center text-xs text-muted-foreground">
+                {isLoadingMoreMeldungen
+                  ? "Weitere Meldungen werden geladen..."
+                  : !hasMoreMeldungen && "Alle Meldungen geladen"}
+              </div>
             </div>
           )}
         </div>

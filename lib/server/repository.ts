@@ -1,9 +1,10 @@
-import { asc, count, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, inArray, lt, or } from 'drizzle-orm'
 import type {
+  BootstrapSnapshot,
   CreateMeldungInput,
   CreateMessageTypeInput,
   CreatePostenInput,
-  DataSnapshot,
+  MeldungenPage,
   UpdateMeldungInput,
   UpdateMessageTypeInput,
   UpdatePostenInput,
@@ -21,29 +22,31 @@ function nowTimestamp() {
   return Date.now()
 }
 
-export function getDataSnapshot(): DataSnapshot {
+const DEFAULT_MELDUNGEN_PAGE_SIZE = 100
+
+function encodeMeldungenCursor(createdAt: number, id: number) {
+  return `${createdAt}:${id}`
+}
+
+function parseMeldungenCursor(cursor: string) {
+  const [createdAtValue, idValue] = cursor.split(':')
+  const createdAt = Number(createdAtValue)
+  const id = Number(idValue)
+
+  if (!Number.isFinite(createdAt) || !Number.isFinite(id)) {
+    throw new Error('Ungueltiger Meldungen-Cursor.')
+  }
+
+  return { createdAt, id }
+}
+
+function buildCategoriesByTypeId() {
   const db = getDb()
 
-  const postenRows = db.select().from(postenTable).orderBy(asc(postenTable.createdAt)).all()
-  const messageTypeRows = db
-    .select()
-    .from(messageTypesTable)
-    .orderBy(asc(messageTypesTable.createdAt))
-    .all()
   const categoryRows = db
     .select()
     .from(messageTypeCategoriesTable)
     .orderBy(asc(messageTypeCategoriesTable.position))
-    .all()
-  const meldungRows = db
-    .select()
-    .from(meldungenTable)
-    .orderBy(desc(meldungenTable.createdAt), desc(meldungenTable.id))
-    .all()
-  const meldungValueRows = db
-    .select()
-    .from(meldungValuesTable)
-    .orderBy(asc(meldungValuesTable.position))
     .all()
 
   const categoriesByTypeId = new Map<number, typeof categoryRows>()
@@ -53,6 +56,60 @@ export function getDataSnapshot(): DataSnapshot {
     categoriesByTypeId.set(category.messageTypeId, current)
   }
 
+  return categoriesByTypeId
+}
+
+function getPostenData() {
+  const db = getDb()
+  const postenRows = db.select().from(postenTable).orderBy(asc(postenTable.createdAt)).all()
+
+  return postenRows.map((posten) => ({
+    id: posten.id,
+    name: posten.name,
+    coordinates: {
+      easting: posten.easting,
+      northing: posten.northing,
+    },
+    comment: posten.comment,
+    createdAt: posten.createdAt,
+  }))
+}
+
+function getMessageTypeData() {
+  const db = getDb()
+  const categoriesByTypeId = buildCategoriesByTypeId()
+  const messageTypeRows = db
+    .select()
+    .from(messageTypesTable)
+    .orderBy(asc(messageTypesTable.createdAt))
+    .all()
+
+  return messageTypeRows.map((type) => ({
+    id: type.id,
+    name: type.name,
+    minPerHour: type.minPerHour,
+    categories: (categoriesByTypeId.get(type.id) ?? []).map((category) => ({
+      id: category.id,
+      name: category.name,
+      maxDigits: category.maxDigits,
+    })),
+  }))
+}
+
+function getMeldungValuesById(meldungIds: number[]) {
+  const db = getDb()
+
+  if (meldungIds.length === 0) {
+    return new Map<number, Array<{ categoryId: number; categoryName: string; value: string }>>()
+  }
+
+  const meldungValueRows = db
+    .select()
+    .from(meldungValuesTable)
+    .where(inArray(meldungValuesTable.meldungId, meldungIds))
+    .orderBy(asc(meldungValuesTable.position))
+    .all()
+
   const valuesByMeldungId = new Map<number, typeof meldungValueRows>()
   for (const value of meldungValueRows) {
     const current = valuesByMeldungId.get(value.meldungId) ?? []
@@ -60,41 +117,125 @@ export function getDataSnapshot(): DataSnapshot {
     valuesByMeldungId.set(value.meldungId, current)
   }
 
+  return valuesByMeldungId
+}
+
+function mapMeldungen(
+  meldungRows: Array<{
+    id: number
+    postenId: number
+    typeId: number
+    comment: string
+    createdAt: number
+    updatedAt: number
+    isValid: boolean
+  }>,
+) {
+  const valuesByMeldungId = getMeldungValuesById(meldungRows.map((meldung) => meldung.id))
+
+  return meldungRows.map((meldung) => ({
+    id: meldung.id,
+    postenId: meldung.postenId,
+    typeId: meldung.typeId,
+    comment: meldung.comment,
+    createdAt: meldung.createdAt,
+    updatedAt: meldung.updatedAt,
+    isValid: meldung.isValid,
+    values: (valuesByMeldungId.get(meldung.id) ?? []).map((value) => ({
+      categoryId: value.categoryId,
+      categoryName: value.categoryName,
+      value: value.value,
+    })),
+  }))
+}
+
+export function getBootstrapSnapshot(): BootstrapSnapshot {
+  const db = getDb()
+  const posten = getPostenData()
+  const messageTypes = getMessageTypeData()
+  const [{ value: meldungCount }] = db.select({ value: count() }).from(meldungenTable).all()
+  const oneHourAgo = nowTimestamp() - 60 * 60 * 1000
+  const lastHourCounts = db
+    .select({
+      postenId: meldungenTable.postenId,
+      typeId: meldungenTable.typeId,
+      count: count(),
+    })
+    .from(meldungenTable)
+    .where(and(eq(meldungenTable.isValid, true), gt(meldungenTable.createdAt, oneHourAgo)))
+    .groupBy(meldungenTable.postenId, meldungenTable.typeId)
+    .all()
+
+  const recentRowsByPosten = posten.map((postenEntry) => ({
+    postenId: postenEntry.id,
+    rows: db
+      .select()
+      .from(meldungenTable)
+      .where(eq(meldungenTable.postenId, postenEntry.id))
+      .orderBy(desc(meldungenTable.createdAt), desc(meldungenTable.id))
+      .limit(3)
+      .all(),
+  }))
+
   return {
-    posten: postenRows.map((posten) => ({
-      id: posten.id,
-      name: posten.name,
-      coordinates: {
-        easting: posten.easting,
-        northing: posten.northing,
-      },
-      comment: posten.comment,
-      createdAt: posten.createdAt,
+    posten,
+    messageTypes,
+    meldungCount,
+    lastHourCounts,
+    recentMeldungenByPosten: recentRowsByPosten.map((entry) => ({
+      postenId: entry.postenId,
+      meldungen: mapMeldungen(entry.rows),
     })),
-    messageTypes: messageTypeRows.map((type) => ({
-      id: type.id,
-      name: type.name,
-      minPerHour: type.minPerHour,
-      categories: (categoriesByTypeId.get(type.id) ?? []).map((category) => ({
-        id: category.id,
-        name: category.name,
-        maxDigits: category.maxDigits,
-      })),
-    })),
-    meldungen: meldungRows.map((meldung) => ({
-      id: meldung.id,
-      postenId: meldung.postenId,
-      typeId: meldung.typeId,
-      comment: meldung.comment,
-      createdAt: meldung.createdAt,
-      updatedAt: meldung.updatedAt,
-      isValid: meldung.isValid,
-      values: (valuesByMeldungId.get(meldung.id) ?? []).map((value) => ({
-        categoryId: value.categoryId,
-        categoryName: value.categoryName,
-        value: value.value,
-      })),
-    })),
+  }
+}
+
+export function getMeldungenPage(options?: {
+  postenId?: number
+  limit?: number
+  cursor?: string
+}): MeldungenPage {
+  const db = getDb()
+  const pageSize = Math.max(1, Math.min(options?.limit ?? DEFAULT_MELDUNGEN_PAGE_SIZE, 200))
+  const filters = [] as Array<ReturnType<typeof eq> | ReturnType<typeof or>>
+
+  if (options?.postenId !== undefined) {
+    filters.push(eq(meldungenTable.postenId, options.postenId))
+  }
+
+  if (options?.cursor) {
+    const cursor = parseMeldungenCursor(options.cursor)
+    filters.push(
+      or(
+        lt(meldungenTable.createdAt, cursor.createdAt),
+        and(eq(meldungenTable.createdAt, cursor.createdAt), lt(meldungenTable.id, cursor.id)),
+      ),
+    )
+  }
+
+  const whereClause = filters.length === 0 ? undefined : filters.length === 1 ? filters[0] : and(...filters)
+  const totalQuery = db.select({ value: count() }).from(meldungenTable)
+  const pageQuery = db
+    .select()
+    .from(meldungenTable)
+    .orderBy(desc(meldungenTable.createdAt), desc(meldungenTable.id))
+    .limit(pageSize + 1)
+
+  if (whereClause) {
+    totalQuery.where(whereClause)
+    pageQuery.where(whereClause)
+  }
+
+  const [{ value: totalCount }] = totalQuery.all()
+  const rows = pageQuery.all()
+  const hasMore = rows.length > pageSize
+  const meldungRows = hasMore ? rows.slice(0, pageSize) : rows
+  const lastRow = meldungRows.at(-1)
+
+  return {
+    meldungen: mapMeldungen(meldungRows),
+    totalCount,
+    hasMore,
+    nextCursor: hasMore && lastRow ? encodeMeldungenCursor(lastRow.createdAt, lastRow.id) : null,
   }
 }
 
@@ -111,7 +252,7 @@ export function createPosten(data: CreatePostenInput) {
     })
     .run()
 
-  return getDataSnapshot()
+  return getBootstrapSnapshot()
 }
 
 export function updatePosten(id: number, data: UpdatePostenInput) {
@@ -135,7 +276,7 @@ export function updatePosten(id: number, data: UpdatePostenInput) {
     throw new Error('Posten nicht gefunden.')
   }
 
-  return getDataSnapshot()
+  return getBootstrapSnapshot()
 }
 
 export function deletePosten(id: number) {
@@ -160,7 +301,7 @@ export function deletePosten(id: number) {
     db.delete(postenTable).where(eq(postenTable.id, id)).run()
   })
 
-  return getDataSnapshot()
+  return getBootstrapSnapshot()
 }
 
 export function createMessageType(data: CreateMessageTypeInput) {
@@ -190,7 +331,7 @@ export function createMessageType(data: CreateMessageTypeInput) {
     }
   })
 
-  return getDataSnapshot()
+  return getBootstrapSnapshot()
 }
 
 export function updateMessageType(id: number, data: UpdateMessageTypeInput) {
@@ -228,7 +369,7 @@ export function updateMessageType(id: number, data: UpdateMessageTypeInput) {
     }
   })
 
-  return getDataSnapshot()
+  return getBootstrapSnapshot()
 }
 
 export function deleteMessageType(id: number) {
@@ -244,7 +385,7 @@ export function deleteMessageType(id: number) {
   }
 
   db.delete(messageTypesTable).where(eq(messageTypesTable.id, id)).run()
-  return getDataSnapshot()
+  return getBootstrapSnapshot()
 }
 
 export function createMeldung(data: CreateMeldungInput) {
@@ -278,7 +419,7 @@ export function createMeldung(data: CreateMeldungInput) {
       .run()
   })
 
-  return getDataSnapshot()
+  return getBootstrapSnapshot()
 }
 
 export function updateMeldung(id: number, data: UpdateMeldungInput) {
@@ -316,11 +457,11 @@ export function updateMeldung(id: number, data: UpdateMeldungInput) {
     }
   })
 
-  return getDataSnapshot()
+  return getBootstrapSnapshot()
 }
 
 export function deleteMeldung(id: number) {
   const db = getDb()
   db.delete(meldungenTable).where(eq(meldungenTable.id, id)).run()
-  return getDataSnapshot()
+  return getBootstrapSnapshot()
 }

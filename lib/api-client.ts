@@ -1,24 +1,25 @@
 import {
+  bootstrapSnapshotSchema,
   createMeldungSchema,
   createMessageTypeSchema,
   createPostenSchema,
-  dataSnapshotSchema,
+  meldungenPageSchema,
   updateMeldungSchema,
   updateMessageTypeSchema,
   updatePostenSchema,
   type CreateMeldungInput,
   type CreateMessageTypeInput,
   type CreatePostenInput,
-  type DataSnapshot,
   type UpdateMeldungInput,
   type UpdateMessageTypeInput,
   type UpdatePostenInput,
 } from '@/lib/contracts'
 
-async function requestSnapshot(
+async function requestJson<TPayload>(
   input: RequestInfo | URL,
-  init?: RequestInit
-): Promise<DataSnapshot> {
+  schema: { parse: (value: unknown) => TPayload },
+  init?: RequestInit,
+): Promise<TPayload> {
   const response = await fetch(input, {
     ...init,
     headers: {
@@ -36,69 +37,92 @@ async function requestSnapshot(
   }
 
   const payload = await response.json()
-  return dataSnapshotSchema.parse(payload)
+  return schema.parse(payload)
 }
 
 export function fetchBootstrapSnapshot() {
-  return requestSnapshot('/api/bootstrap', { cache: 'no-store' })
+  return requestJson('/api/bootstrap', bootstrapSnapshotSchema, { cache: 'no-store' })
+}
+
+export function fetchMeldungenPage(options?: {
+  cursor?: string
+  limit?: number
+  postenId?: number
+}) {
+  const params = new URLSearchParams()
+
+  if (options?.cursor) {
+    params.set('cursor', options.cursor)
+  }
+
+  if (options?.limit !== undefined) {
+    params.set('limit', String(options.limit))
+  }
+
+  if (options?.postenId !== undefined) {
+    params.set('postenId', String(options.postenId))
+  }
+
+  const suffix = params.size > 0 ? `?${params.toString()}` : ''
+  return requestJson(`/api/meldungen${suffix}`, meldungenPageSchema, { cache: 'no-store' })
 }
 
 export function createPosten(data: CreatePostenInput) {
-  return requestSnapshot('/api/posten', {
+  return requestJson('/api/posten', bootstrapSnapshotSchema, {
     method: 'POST',
     body: JSON.stringify(createPostenSchema.parse(data)),
   })
 }
 
 export function updatePosten(id: number, data: UpdatePostenInput) {
-  return requestSnapshot(`/api/posten/${id}`, {
+  return requestJson(`/api/posten/${id}`, bootstrapSnapshotSchema, {
     method: 'PATCH',
     body: JSON.stringify(updatePostenSchema.parse(data)),
   })
 }
 
 export function deletePosten(id: number) {
-  return requestSnapshot(`/api/posten/${id}`, {
+  return requestJson(`/api/posten/${id}`, bootstrapSnapshotSchema, {
     method: 'DELETE',
   })
 }
 
 export function createMessageType(data: CreateMessageTypeInput) {
-  return requestSnapshot('/api/message-types', {
+  return requestJson('/api/message-types', bootstrapSnapshotSchema, {
     method: 'POST',
     body: JSON.stringify(createMessageTypeSchema.parse(data)),
   })
 }
 
 export function updateMessageType(id: number, data: UpdateMessageTypeInput) {
-  return requestSnapshot(`/api/message-types/${id}`, {
+  return requestJson(`/api/message-types/${id}`, bootstrapSnapshotSchema, {
     method: 'PATCH',
     body: JSON.stringify(updateMessageTypeSchema.parse(data)),
   })
 }
 
 export function deleteMessageType(id: number) {
-  return requestSnapshot(`/api/message-types/${id}`, {
+  return requestJson(`/api/message-types/${id}`, bootstrapSnapshotSchema, {
     method: 'DELETE',
   })
 }
 
 export function createMeldung(data: CreateMeldungInput) {
-  return requestSnapshot('/api/meldungen', {
+  return requestJson('/api/meldungen', bootstrapSnapshotSchema, {
     method: 'POST',
     body: JSON.stringify(createMeldungSchema.parse(data)),
   })
 }
 
 export function updateMeldung(id: number, data: UpdateMeldungInput) {
-  return requestSnapshot(`/api/meldungen/${id}`, {
+  return requestJson(`/api/meldungen/${id}`, bootstrapSnapshotSchema, {
     method: 'PATCH',
     body: JSON.stringify(updateMeldungSchema.parse(data)),
   })
 }
 
 export function deleteMeldung(id: number) {
-  return requestSnapshot(`/api/meldungen/${id}`, {
+  return requestJson(`/api/meldungen/${id}`, bootstrapSnapshotSchema, {
     method: 'DELETE',
   })
 }

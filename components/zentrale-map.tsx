@@ -1,7 +1,7 @@
 'use client'
 
 import { renderToStaticMarkup } from 'react-dom/server'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   LngLatBounds,
   Map as MapLibreMap,
@@ -13,7 +13,7 @@ import {
   swissToWgs84,
 } from '@/lib/coordinates'
 import { useData } from '@/lib/data-context'
-import type { Posten, Meldung } from '@/lib/store'
+import type { Posten } from '@/lib/store'
 import { PostenPopupContent } from './posten-popup-content'
 
 type MapStyleSource = {
@@ -72,26 +72,6 @@ async function loadMapStyle() {
   return absolutizeMapStyle(style, window.location.origin)
 }
 
-function getMeldungenLastHourByTyp(
-  postenId: number,
-  typeId: number,
-  meldungen: {
-    postenId: number
-    typeId: number
-    createdAt: number
-    isValid: boolean
-  }[]
-) {
-  const oneHourAgo = Date.now() - 60 * 60 * 1000
-  return meldungen.filter(
-    (n) =>
-      n.isValid &&
-      n.postenId === postenId &&
-      n.typeId === typeId &&
-      n.createdAt > oneHourAgo
-  ).length
-}
-
 function createPostenIcon(status: 'ok' | 'warning' | 'none', isSelected: boolean) {
   const size = isSelected ? 16 : 12
   let bg: string
@@ -130,11 +110,28 @@ export function ZentraleMap() {
   const [mapReady, setMapReady] = useState(false)
   const {
     posten,
-    meldungen,
     messageTypes,
+    lastHourCounts,
+    recentMeldungenByPosten,
     selectedPostenId,
     setSelectedPostenId,
   } = useData()
+
+  const lastHourCountLookup = useMemo(() => {
+    return new Map(
+      lastHourCounts.map((entry) => [`${entry.postenId}:${entry.typeId}`, entry.count]),
+    )
+  }, [lastHourCounts])
+
+  const recentMeldungenLookup = useMemo(() => {
+    return new Map(
+      recentMeldungenByPosten.map((entry) => [entry.postenId, entry.meldungen]),
+    )
+  }, [recentMeldungenByPosten])
+
+  function getLastHourCount(postenId: number, typeId: number) {
+    return lastHourCountLookup.get(`${postenId}:${typeId}`) ?? 0
+  }
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return
@@ -202,9 +199,7 @@ export function ZentraleMap() {
     let hasBounds = false
 
     posten.forEach((p: Posten) => {
-      const postenMeldungen = meldungen.filter(
-        (n: Meldung) => n.postenId === p.id
-      )
+      const postenMeldungen = recentMeldungenLookup.get(p.id) ?? []
       const isSelected = selectedPostenId === p.id
 
       // Determine status based on per-type minimums
@@ -213,7 +208,7 @@ export function ZentraleMap() {
         status = postenMeldungen.length > 0 ? 'ok' : 'none'
       } else {
         const allFulfilled = typesWithMinimum.every((type) => {
-          const count = getMeldungenLastHourByTyp(p.id, type.id, meldungen)
+          const count = getLastHourCount(p.id, type.id)
           return count >= type.minPerHour
         })
         status = allFulfilled ? 'ok' : 'warning'
@@ -228,7 +223,7 @@ export function ZentraleMap() {
       const statusRows = typesWithMinimum.map((type) => ({
         id: type.id,
         name: type.name,
-        count: getMeldungenLastHourByTyp(p.id, type.id, meldungen),
+        count: getLastHourCount(p.id, type.id),
         minPerHour: type.minPerHour,
       }))
 
@@ -236,9 +231,7 @@ export function ZentraleMap() {
         <PostenPopupContent
           posten={p}
           statusRows={statusRows}
-          recentMeldungen={[...postenMeldungen]
-            .sort((left, right) => right.createdAt - left.createdAt || right.id - left.id)
-            .slice(0, 3)}
+          recentMeldungen={postenMeldungen}
           getTypeName={(typeId) =>
             messageTypes.find((entry) => entry.id === typeId)?.name || '?'
           }
@@ -285,7 +278,7 @@ export function ZentraleMap() {
         })
       }
     }
-  }, [mapReady, posten, meldungen, messageTypes, selectedPostenId, setSelectedPostenId])
+  }, [lastHourCountLookup, mapReady, messageTypes, posten, recentMeldungenLookup, selectedPostenId, setSelectedPostenId])
 
   return (
     <div className="relative h-full w-full">

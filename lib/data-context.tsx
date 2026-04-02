@@ -1,10 +1,10 @@
 'use client'
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type {
-  Posten,
   MeldungType,
   Meldung,
+  Posten,
 } from './store'
 import {
   createMeldung as createMeldungRequest,
@@ -14,11 +14,18 @@ import {
   deleteMessageType as deleteMessageTypeRequest,
   deletePosten as deletePostenRequest,
   fetchBootstrapSnapshot,
+  fetchMeldungenPage,
   updateMeldung as updateMeldungRequest,
   updateMessageType as updateMessageTypeRequest,
   updatePosten as updatePostenRequest,
 } from '@/lib/api-client'
-import type { DataSnapshot } from '@/lib/contracts'
+import type {
+  BootstrapSnapshot,
+  MeldungLastHourCount,
+  PostenRecentMeldungen,
+} from '@/lib/contracts'
+
+const MELDUNGEN_PAGE_SIZE = 100
 
 interface DataContextType {
   // Posten
@@ -35,6 +42,14 @@ interface DataContextType {
 
   // Meldungen
   meldungen: Meldung[]
+  meldungCount: number
+  meldungenTotalCount: number
+  hasMoreMeldungen: boolean
+  isLoadingMeldungen: boolean
+  isLoadingMoreMeldungen: boolean
+  loadMoreMeldungen: () => Promise<void>
+  lastHourCounts: MeldungLastHourCount[]
+  recentMeldungenByPosten: PostenRecentMeldungen[]
   addMeldung: (data: Omit<Meldung, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
   updateMeldung: (
     id: number,
@@ -56,30 +71,74 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [posten, setPosten] = useState<Posten[]>([])
   const [messageTypes, setMessageTypes] = useState<MeldungType[]>([])
   const [meldungen, setMeldungen] = useState<Meldung[]>([])
+  const [meldungCount, setMeldungCount] = useState(0)
+  const [meldungenTotalCount, setMeldungenTotalCount] = useState(0)
+  const [lastHourCounts, setLastHourCounts] = useState<MeldungLastHourCount[]>([])
+  const [recentMeldungenByPosten, setRecentMeldungenByPosten] = useState<PostenRecentMeldungen[]>([])
+  const [nextMeldungenCursor, setNextMeldungenCursor] = useState<string | null>(null)
+  const [hasMoreMeldungen, setHasMoreMeldungen] = useState(false)
   const [selectedPostenId, setSelectedPostenId] = useState<number | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isBootstrapping, setIsBootstrapping] = useState(true)
+  const [isBootstrapLoaded, setIsBootstrapLoaded] = useState(false)
+  const [isLoadingMeldungen, setIsLoadingMeldungen] = useState(false)
+  const [isLoadingMoreMeldungen, setIsLoadingMoreMeldungen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const meldungenRequestVersionRef = useRef(0)
 
-  const applySnapshot = useCallback((snapshot: DataSnapshot) => {
+  const applyBootstrap = useCallback((snapshot: BootstrapSnapshot) => {
     setPosten(snapshot.posten)
     setMessageTypes(snapshot.messageTypes)
-    setMeldungen(snapshot.meldungen)
+    setMeldungCount(snapshot.meldungCount)
+    setLastHourCounts(snapshot.lastHourCounts)
+    setRecentMeldungenByPosten(snapshot.recentMeldungenByPosten)
+  }, [])
+
+  const loadInitialMeldungen = useCallback(async (postenId: number | null) => {
+    const requestVersion = ++meldungenRequestVersionRef.current
+    setIsLoadingMeldungen(true)
+
+    try {
+      const page = await fetchMeldungenPage({
+        limit: MELDUNGEN_PAGE_SIZE,
+        postenId: postenId ?? undefined,
+      })
+
+      if (requestVersion !== meldungenRequestVersionRef.current) {
+        return
+      }
+
+      setMeldungen(page.meldungen)
+      setMeldungenTotalCount(page.totalCount)
+      setHasMoreMeldungen(page.hasMore)
+      setNextMeldungenCursor(page.nextCursor)
+      setError(null)
+    } catch (refreshError) {
+      setError(
+        refreshError instanceof Error
+          ? refreshError.message
+          : 'Meldungen konnten nicht geladen werden.'
+      )
+    } finally {
+      setIsLoadingMeldungen(false)
+    }
   }, [])
 
   const runMutation = useCallback(
-    async (operation: () => Promise<DataSnapshot>) => {
+    async (operation: () => Promise<BootstrapSnapshot>) => {
       const snapshot = await operation()
-      applySnapshot(snapshot)
+      applyBootstrap(snapshot)
+      await loadInitialMeldungen(selectedPostenId)
       setError(null)
     },
-    [applySnapshot]
+    [applyBootstrap, loadInitialMeldungen, selectedPostenId]
   )
 
   const refreshData = useCallback(async () => {
-    setIsLoading(true)
+    setIsBootstrapping(true)
     try {
       const snapshot = await fetchBootstrapSnapshot()
-      applySnapshot(snapshot)
+      applyBootstrap(snapshot)
+      setIsBootstrapLoaded(true)
       setError(null)
     } catch (refreshError) {
       setError(
@@ -88,13 +147,60 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           : 'Daten konnten nicht geladen werden.'
       )
     } finally {
-      setIsLoading(false)
+      setIsBootstrapping(false)
     }
-  }, [applySnapshot])
+  }, [applyBootstrap])
+
+  const loadMoreMeldungen = useCallback(async () => {
+    if (
+      isLoadingMeldungen ||
+      isLoadingMoreMeldungen ||
+      !hasMoreMeldungen ||
+      !nextMeldungenCursor
+    ) {
+      return
+    }
+
+    setIsLoadingMoreMeldungen(true)
+    const requestVersion = meldungenRequestVersionRef.current
+    try {
+      const page = await fetchMeldungenPage({
+        limit: MELDUNGEN_PAGE_SIZE,
+        postenId: selectedPostenId ?? undefined,
+        cursor: nextMeldungenCursor,
+      })
+
+      if (requestVersion !== meldungenRequestVersionRef.current) {
+        return
+      }
+
+      setMeldungen((current) => [...current, ...page.meldungen])
+      setMeldungenTotalCount(page.totalCount)
+      setHasMoreMeldungen(page.hasMore)
+      setNextMeldungenCursor(page.nextCursor)
+      setError(null)
+    } catch (loadMoreError) {
+      setError(
+        loadMoreError instanceof Error
+          ? loadMoreError.message
+          : 'Weitere Meldungen konnten nicht geladen werden.'
+      )
+    } finally {
+      setIsLoadingMoreMeldungen(false)
+    }
+  }, [hasMoreMeldungen, isLoadingMeldungen, isLoadingMoreMeldungen, nextMeldungenCursor, selectedPostenId])
 
   useEffect(() => {
     void refreshData()
   }, [refreshData])
+
+  useEffect(() => {
+    if (!isBootstrapLoaded) {
+      return
+    }
+
+    void loadInitialMeldungen(selectedPostenId)
+  }, [isBootstrapLoaded, loadInitialMeldungen, selectedPostenId])
 
   const addPosten = useCallback(
     async (data: Omit<Posten, 'id' | 'createdAt'>) => {
@@ -173,12 +279,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       updateMessageType,
       deleteMessageType,
       meldungen,
+      meldungCount,
+      meldungenTotalCount,
+      hasMoreMeldungen,
+      isLoadingMeldungen,
+      isLoadingMoreMeldungen,
+      loadMoreMeldungen,
+      lastHourCounts,
+      recentMeldungenByPosten,
       addMeldung,
       updateMeldung,
       deleteMeldung,
       selectedPostenId,
       setSelectedPostenId,
-      isLoading,
+      isLoading: isBootstrapping || !isBootstrapLoaded || isLoadingMeldungen,
       error,
       refreshData,
     }),
@@ -192,11 +306,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       updateMessageType,
       deleteMessageType,
       meldungen,
+      meldungCount,
+      meldungenTotalCount,
+      hasMoreMeldungen,
+      isLoadingMeldungen,
+      isLoadingMoreMeldungen,
+      loadMoreMeldungen,
+      lastHourCounts,
+      recentMeldungenByPosten,
       addMeldung,
       updateMeldung,
       deleteMeldung,
       selectedPostenId,
-      isLoading,
+      isBootstrapping,
+      isBootstrapLoaded,
+      isLoadingMeldungen,
       error,
       refreshData,
     ]
