@@ -8,6 +8,7 @@ import {
 } from "@/lib/coordinates";
 import { useData } from "@/lib/data-context";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   PostenDialog,
   emptyPostenForm,
@@ -18,8 +19,44 @@ import { MeldungDialog } from "@/components/dialogs/meldung-dialog";
 import { MeldungDeleteDialog } from "@/components/dialogs/meldung-delete-dialog";
 import { MeldungListItem } from "@/components/meldung-list-item";
 import { PostenListItem } from "@/components/posten-list-item";
-import { Plus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, SlidersHorizontal } from "lucide-react";
+import type { MeldungenFilters, MeldungValidityFilter } from "@/lib/contracts";
 import type { Meldung, MeldungValue, Posten } from "@/lib/store";
+
+const VALIDITY_LABELS: Record<MeldungValidityFilter, string> = {
+  all: "Gültige & ungültige",
+  valid: "Nur gültige",
+  invalid: "Nur ungültige",
+};
+
+function toDateTimeLocalValue(timestamp: number | null) {
+  if (timestamp === null) {
+    return "";
+  }
+
+  const date = new Date(timestamp);
+  const timezoneOffsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(timestamp - timezoneOffsetMs).toISOString().slice(0, 16);
+}
+
+function fromDateTimeLocalValue(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
 
 function postenToForm(p: Posten): PostenFormData {
   return {
@@ -46,6 +83,8 @@ export function PostenMeldungenPanel() {
     deleteMeldung,
     lastHourCounts,
     messageTypes,
+    meldungenFilters,
+    setMeldungenFilters,
     selectedPostenId,
     setSelectedPostenId,
   } = useData();
@@ -325,6 +364,57 @@ export function PostenMeldungenPanel() {
     return messageTypes.find((type) => type.id === id)?.name || "?";
   }
 
+  function toggleTypeFilter(typeId: number, checked: boolean) {
+    setMeldungenFilters((current) => ({
+      ...current,
+      typeIds: checked
+        ? [...current.typeIds, typeId].sort((left, right) => left - right)
+        : current.typeIds.filter((currentTypeId) => currentTypeId !== typeId),
+    }));
+  }
+
+  function setCustomRangeBoundary(
+    boundary: "rangeStartAt" | "rangeEndAt",
+    value: string
+  ) {
+    setMeldungenFilters((current) => ({
+      ...current,
+      [boundary]: fromDateTimeLocalValue(value),
+    }));
+  }
+
+  function clearCustomRange() {
+    setMeldungenFilters((current) => ({
+      ...current,
+      rangeStartAt: null,
+      rangeEndAt: null,
+    }));
+  }
+
+  function setValidityFilter(validity: MeldungenFilters["validity"]) {
+    setMeldungenFilters((current) => ({
+      ...current,
+      validity,
+    }));
+  }
+
+  function resetMeldungenFilters() {
+    setMeldungenFilters({
+      typeIds: [],
+      validity: "all",
+      rangeStartAt: null,
+      rangeEndAt: null,
+    });
+  }
+
+  const hasCustomRange =
+    meldungenFilters.rangeStartAt !== null || meldungenFilters.rangeEndAt !== null;
+
+  const activeFilterCount =
+    meldungenFilters.typeIds.length +
+    (hasCustomRange ? 1 : 0) +
+    (meldungenFilters.validity === "all" ? 0 : 1);
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
@@ -380,13 +470,112 @@ export function PostenMeldungenPanel() {
 
         <div className="flex min-h-0 flex-1 flex-col border-t-2 border-border">
           <div className="flex items-center justify-between border-b border-border bg-background px-3 py-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {selectedPostenId
-                ? `Meldungen — ${
-                    posten.find((p) => p.id === selectedPostenId)?.name || "?"
-                  }`
-                : `Alle Meldungen`}
-            </span>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                {selectedPostenId
+                  ? `Meldungen — ${
+                      posten.find((p) => p.id === selectedPostenId)?.name || "?"
+                    }`
+                  : `Alle Meldungen`}
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Meldungen filtern"
+                    className="relative shrink-0"
+                  >
+                    <SlidersHorizontal className="size-3.5" />
+                    {activeFilterCount > 0 ? (
+                      <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-foreground text-[10px] font-bold text-background">
+                        {activeFilterCount}
+                      </span>
+                    ) : null}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <div className="px-2 pb-1">
+                    <div className="mb-2 mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Zeitraum</span>
+                      {hasCustomRange ? (
+                        <button
+                          type="button"
+                          onClick={clearCustomRange}
+                          className="hover:text-foreground"
+                        >
+                          Leeren
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Von</span>
+                        <Input
+                          type="datetime-local"
+                          value={toDateTimeLocalValue(meldungenFilters.rangeStartAt)}
+                          onChange={(event) =>
+                            setCustomRangeBoundary("rangeStartAt", event.target.value)
+                          }
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Bis</span>
+                        <Input
+                          type="datetime-local"
+                          value={toDateTimeLocalValue(meldungenFilters.rangeEndAt)}
+                          onChange={(event) =>
+                            setCustomRangeBoundary("rangeEndAt", event.target.value)
+                          }
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Gültigekeit</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup
+                    value={meldungenFilters.validity}
+                    onValueChange={(value) =>
+                      setValidityFilter(value as MeldungValidityFilter)
+                    }
+                  >
+                    {(
+                      Object.entries(VALIDITY_LABELS) as Array<[
+                        MeldungValidityFilter,
+                        string,
+                      ]>
+                    ).map(([value, label]) => (
+                      <DropdownMenuRadioItem key={value} value={value}>
+                        {label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Meldungstypen</DropdownMenuLabel>
+                  {messageTypes.map((type) => (
+                    <DropdownMenuCheckboxItem
+                      key={type.id}
+                      checked={meldungenFilters.typeIds.includes(type.id)}
+                      onCheckedChange={(checked) =>
+                        toggleTypeFilter(type.id, checked === true)
+                      }
+                    >
+                      {type.name}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <Button
+                    variant="outlines"
+                    onClick={resetMeldungenFilters}
+                    className="focus:bg-accent focus:text-accent-foreground flex w-full cursor-pointer items-center rounded-sm px-2 py-1.5 text-left text-sm outline-hidden"
+                  >
+                    Filter zuruecksetzen
+                  </Button>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           {isLoadingMeldungen ? (
             <div className="p-3 text-xs text-muted-foreground">

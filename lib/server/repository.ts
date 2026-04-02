@@ -1,9 +1,10 @@
-import { and, asc, count, desc, eq, gt, inArray, lt, or } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, gte, inArray, lt, lte, or } from 'drizzle-orm'
 import type {
   BootstrapSnapshot,
   CreateMeldungInput,
   CreateMessageTypeInput,
   CreatePostenInput,
+  MeldungenFilters,
   MeldungenPage,
   UpdateMeldungInput,
   UpdateMessageTypeInput,
@@ -34,7 +35,7 @@ function parseMeldungenCursor(cursor: string) {
   const id = Number(idValue)
 
   if (!Number.isFinite(createdAt) || !Number.isFinite(id)) {
-    throw new Error('Ungueltiger Meldungen-Cursor.')
+    throw new Error('Ungültiger Meldungen-Cursor.')
   }
 
   return { createdAt, id }
@@ -193,13 +194,39 @@ export function getMeldungenPage(options?: {
   postenId?: number
   limit?: number
   cursor?: string
+  filters?: MeldungenFilters
 }): MeldungenPage {
   const db = getDb()
   const pageSize = Math.max(1, Math.min(options?.limit ?? DEFAULT_MELDUNGEN_PAGE_SIZE, 200))
+  const meldungenFilters = options?.filters
   const filters = [] as Array<ReturnType<typeof eq> | ReturnType<typeof or>>
 
   if (options?.postenId !== undefined) {
     filters.push(eq(meldungenTable.postenId, options.postenId))
+  }
+
+  const filteredTypeIds = meldungenFilters?.typeIds ?? []
+  const rangeStartAt = meldungenFilters?.rangeStartAt
+  const rangeEndAt = meldungenFilters?.rangeEndAt
+
+  if (filteredTypeIds.length > 0) {
+    filters.push(inArray(meldungenTable.typeId, filteredTypeIds))
+  }
+
+  if (meldungenFilters?.validity === 'valid') {
+    filters.push(eq(meldungenTable.isValid, true))
+  }
+
+  if (meldungenFilters?.validity === 'invalid') {
+    filters.push(eq(meldungenTable.isValid, false))
+  }
+
+  if (rangeStartAt !== null && rangeStartAt !== undefined) {
+    filters.push(gte(meldungenTable.createdAt, rangeStartAt))
+  }
+
+  if (rangeEndAt !== null && rangeEndAt !== undefined) {
+    filters.push(lte(meldungenTable.createdAt, rangeEndAt))
   }
 
   if (options?.cursor) {

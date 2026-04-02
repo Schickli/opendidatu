@@ -49,6 +49,15 @@ export const meldungLastHourCountSchema = z.object({
   count: z.number().int().nonnegative(),
 })
 
+export const meldungValidityFilterSchema = z.enum(['all', 'valid', 'invalid'])
+
+export const meldungenFiltersSchema = z.object({
+  typeIds: z.array(z.number().int().positive()),
+  validity: meldungValidityFilterSchema,
+  rangeStartAt: z.number().int().nonnegative().nullable(),
+  rangeEndAt: z.number().int().nonnegative().nullable(),
+})
+
 export const postenRecentMeldungenSchema = z.object({
   postenId: z.number().int().positive(),
   meldungen: z.array(meldungSchema),
@@ -101,6 +110,8 @@ export type BootstrapSnapshot = z.infer<typeof bootstrapSnapshotSchema>
 export type MeldungenPage = z.infer<typeof meldungenPageSchema>
 export type MeldungLastHourCount = z.infer<typeof meldungLastHourCountSchema>
 export type PostenRecentMeldungen = z.infer<typeof postenRecentMeldungenSchema>
+export type MeldungenFilters = z.infer<typeof meldungenFiltersSchema>
+export type MeldungValidityFilter = z.infer<typeof meldungValidityFilterSchema>
 export type CreatePostenInput = z.infer<typeof createPostenSchema>
 export type UpdatePostenInput = z.infer<typeof updatePostenSchema>
 export type CreateMessageTypeInput = z.infer<typeof createMessageTypeSchema>

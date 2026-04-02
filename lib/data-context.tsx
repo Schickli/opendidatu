@@ -21,11 +21,18 @@ import {
 } from '@/lib/api-client'
 import type {
   BootstrapSnapshot,
+  MeldungenFilters,
   MeldungLastHourCount,
   PostenRecentMeldungen,
 } from '@/lib/contracts'
 
 const MELDUNGEN_PAGE_SIZE = 100
+const DEFAULT_MELDUNGEN_FILTERS: MeldungenFilters = {
+  typeIds: [],
+  validity: 'all',
+  rangeStartAt: null,
+  rangeEndAt: null,
+}
 
 interface DataContextType {
   // Posten
@@ -50,6 +57,8 @@ interface DataContextType {
   loadMoreMeldungen: () => Promise<void>
   lastHourCounts: MeldungLastHourCount[]
   recentMeldungenByPosten: PostenRecentMeldungen[]
+  meldungenFilters: MeldungenFilters
+  setMeldungenFilters: React.Dispatch<React.SetStateAction<MeldungenFilters>>
   addMeldung: (data: Omit<Meldung, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
   updateMeldung: (
     id: number,
@@ -77,6 +86,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [recentMeldungenByPosten, setRecentMeldungenByPosten] = useState<PostenRecentMeldungen[]>([])
   const [nextMeldungenCursor, setNextMeldungenCursor] = useState<string | null>(null)
   const [hasMoreMeldungen, setHasMoreMeldungen] = useState(false)
+  const [meldungenFilters, setMeldungenFilters] = useState<MeldungenFilters>(DEFAULT_MELDUNGEN_FILTERS)
   const [selectedPostenId, setSelectedPostenId] = useState<number | null>(null)
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const [isBootstrapLoaded, setIsBootstrapLoaded] = useState(false)
@@ -93,7 +103,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setRecentMeldungenByPosten(snapshot.recentMeldungenByPosten)
   }, [])
 
-  const loadInitialMeldungen = useCallback(async (postenId: number | null) => {
+  const loadInitialMeldungen = useCallback(async (
+    postenId: number | null,
+    filters: MeldungenFilters,
+  ) => {
     const requestVersion = ++meldungenRequestVersionRef.current
     setIsLoadingMeldungen(true)
 
@@ -101,6 +114,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const page = await fetchMeldungenPage({
         limit: MELDUNGEN_PAGE_SIZE,
         postenId: postenId ?? undefined,
+        filters,
       })
 
       if (requestVersion !== meldungenRequestVersionRef.current) {
@@ -127,10 +141,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     async (operation: () => Promise<BootstrapSnapshot>) => {
       const snapshot = await operation()
       applyBootstrap(snapshot)
-      await loadInitialMeldungen(selectedPostenId)
+      await loadInitialMeldungen(selectedPostenId, meldungenFilters)
       setError(null)
     },
-    [applyBootstrap, loadInitialMeldungen, selectedPostenId]
+    [applyBootstrap, loadInitialMeldungen, meldungenFilters, selectedPostenId]
   )
 
   const refreshData = useCallback(async () => {
@@ -168,6 +182,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         limit: MELDUNGEN_PAGE_SIZE,
         postenId: selectedPostenId ?? undefined,
         cursor: nextMeldungenCursor,
+        filters: meldungenFilters,
       })
 
       if (requestVersion !== meldungenRequestVersionRef.current) {
@@ -188,7 +203,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoadingMoreMeldungen(false)
     }
-  }, [hasMoreMeldungen, isLoadingMeldungen, isLoadingMoreMeldungen, nextMeldungenCursor, selectedPostenId])
+  }, [
+    hasMoreMeldungen,
+    isLoadingMeldungen,
+    isLoadingMoreMeldungen,
+    meldungenFilters,
+    nextMeldungenCursor,
+    selectedPostenId,
+  ])
 
   useEffect(() => {
     void refreshData()
@@ -199,8 +221,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    void loadInitialMeldungen(selectedPostenId)
-  }, [isBootstrapLoaded, loadInitialMeldungen, selectedPostenId])
+    void loadInitialMeldungen(selectedPostenId, meldungenFilters)
+  }, [isBootstrapLoaded, loadInitialMeldungen, meldungenFilters, selectedPostenId])
 
   const addPosten = useCallback(
     async (data: Omit<Posten, 'id' | 'createdAt'>) => {
@@ -287,6 +309,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loadMoreMeldungen,
       lastHourCounts,
       recentMeldungenByPosten,
+      meldungenFilters,
+      setMeldungenFilters,
       addMeldung,
       updateMeldung,
       deleteMeldung,
@@ -314,6 +338,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loadMoreMeldungen,
       lastHourCounts,
       recentMeldungenByPosten,
+      meldungenFilters,
       addMeldung,
       updateMeldung,
       deleteMeldung,

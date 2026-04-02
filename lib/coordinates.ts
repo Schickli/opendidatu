@@ -56,14 +56,14 @@ export function validateSwissCoordinateInput(
   if (parsedEasting === null) {
     errors.easting = 'Ostwert muss aus genau 7 Ziffern bestehen.'
   } else if (!isWithinRange(parsedEasting, LV95_EASTING_RANGE)) {
-    errors.easting = 'Ostwert liegt ausserhalb des gueltigen LV95-Bereichs.'
+    errors.easting = 'Ostwert liegt ausserhalb des gültigen LV95-Bereichs.'
   }
 
   const parsedNorthing = parseCoordinatePart(input.northing)
   if (parsedNorthing === null) {
     errors.northing = 'Nordwert muss aus genau 7 Ziffern bestehen.'
   } else if (!isWithinRange(parsedNorthing, LV95_NORTHING_RANGE)) {
-    errors.northing = 'Nordwert liegt ausserhalb des gueltigen LV95-Bereichs.'
+    errors.northing = 'Nordwert liegt ausserhalb des gültigen LV95-Bereichs.'
   }
 
   return errors

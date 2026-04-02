@@ -4,6 +4,7 @@ import {
   createMessageTypeSchema,
   createPostenSchema,
   meldungenPageSchema,
+  type MeldungenFilters,
   updateMeldungSchema,
   updateMessageTypeSchema,
   updatePostenSchema,
@@ -48,8 +49,10 @@ export function fetchMeldungenPage(options?: {
   cursor?: string
   limit?: number
   postenId?: number
+  filters?: MeldungenFilters
 }) {
   const params = new URLSearchParams()
+  const filters = options?.filters
 
   if (options?.cursor) {
     params.set('cursor', options.cursor)
@@ -61,6 +64,22 @@ export function fetchMeldungenPage(options?: {
 
   if (options?.postenId !== undefined) {
     params.set('postenId', String(options.postenId))
+  }
+
+  for (const typeId of filters?.typeIds ?? []) {
+    params.append('typeId', String(typeId))
+  }
+
+  if (filters && filters.validity !== 'all') {
+    params.set('validity', filters.validity)
+  }
+
+  if (filters?.rangeStartAt !== null && filters?.rangeStartAt !== undefined) {
+    params.set('rangeStartAt', String(filters.rangeStartAt))
+  }
+
+  if (filters?.rangeEndAt !== null && filters?.rangeEndAt !== undefined) {
+    params.set('rangeEndAt', String(filters.rangeEndAt))
   }
 
   const suffix = params.size > 0 ? `?${params.toString()}` : ''

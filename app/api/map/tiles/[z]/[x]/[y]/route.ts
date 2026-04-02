@@ -17,7 +17,7 @@ export async function GET(
   const row = Number.parseInt(y, 10)
 
   if ([zoom, column, row].some((value) => Number.isNaN(value))) {
-    return NextResponse.json({ error: 'Ungueltige Tile-Koordinaten.' }, { status: 400 })
+    return NextResponse.json({ error: 'Ungültige Tile-Koordinaten.' }, { status: 400 })
   }
 
   const tile = readVectorTile(zoom, column, row)
