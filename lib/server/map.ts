@@ -1,9 +1,13 @@
-import { access, readFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 
-const DEFAULT_STYLE_URL =
+const STYLE_TEMPLATE_URL =
   'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json'
+const MAP_DIRECTORY = path.join(process.cwd(), 'map')
+const MAP_MBTILES_PATH = path.join(MAP_DIRECTORY, 'demo.mbtiles')
+const MAP_TILE_METADATA_PATH = path.join(MAP_DIRECTORY, 'tiles.json')
+const LOCAL_TILE_PATH = '/api/map/tiles/{z}/{x}/{y}'
 
 type VectorSource = {
   type?: string
@@ -18,7 +22,7 @@ type StyleDocument = {
   glyphs?: string
   sprite?: string
   sources?: Record<string, VectorSource>
-  center?: [number, number, number]
+  center?: [number, number]
   zoom?: number
   [key: string]: unknown
 }
@@ -31,24 +35,6 @@ type TileMetadata = {
 }
 
 let mbtilesDatabase: Database.Database | null = null
-let mbtilesPathCache: string | null = null
-
-async function fileExists(filePath: string) {
-  try {
-    await access(filePath)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function resolveConfiguredPath(configuredPath: string | undefined) {
-  if (!configuredPath) {
-    return null
-  }
-
-  return path.resolve(configuredPath)
-}
 
 async function loadJsonFile<T>(filePath: string) {
   const raw = await readFile(filePath, 'utf8')
@@ -56,13 +42,7 @@ async function loadJsonFile<T>(filePath: string) {
 }
 
 async function loadStyleTemplate(): Promise<StyleDocument> {
-  const configuredStylePath = resolveConfiguredPath(process.env.MAP_STYLE_JSON_PATH)
-
-  if (configuredStylePath && (await fileExists(configuredStylePath))) {
-    return loadJsonFile<StyleDocument>(configuredStylePath)
-  }
-
-  const response = await fetch(process.env.MAP_STYLE_URL ?? DEFAULT_STYLE_URL, {
+  const response = await fetch(STYLE_TEMPLATE_URL, {
     cache: 'no-store',
   })
 
@@ -73,37 +53,20 @@ async function loadStyleTemplate(): Promise<StyleDocument> {
   return (await response.json()) as StyleDocument
 }
 
-async function loadTileMetadata(): Promise<TileMetadata | null> {
-  const metadataPath = resolveConfiguredPath(process.env.MAP_METADATA_JSON_PATH)
-
-  if (!metadataPath || !(await fileExists(metadataPath))) {
-    return null
-  }
-
-  return loadJsonFile<TileMetadata>(metadataPath)
+async function loadTileMetadata() {
+  return loadJsonFile<TileMetadata>(MAP_TILE_METADATA_PATH)
 }
 
-function toAbsoluteUrl(urlOrPath: string, origin: string) {
-  return new URL(urlOrPath, origin).toString()
-}
-
-function getMbtilesPath() {
-  return resolveConfiguredPath(process.env.MAP_MBTILES_PATH)
+function toAbsoluteTileTemplate(tilePath: string, origin: string) {
+  return `${origin.replace(/\/$/, '')}${tilePath}`
 }
 
 function getMbtilesDatabase() {
-  const mbtilesPath = getMbtilesPath()
-
-  if (!mbtilesPath) {
-    return null
-  }
-
-  if (mbtilesDatabase && mbtilesPathCache === mbtilesPath) {
+  if (mbtilesDatabase) {
     return mbtilesDatabase
   }
 
-  mbtilesDatabase = new Database(mbtilesPath, { readonly: true })
-  mbtilesPathCache = mbtilesPath
+  mbtilesDatabase = new Database(MAP_MBTILES_PATH, { readonly: true })
   return mbtilesDatabase
 }
 
@@ -138,7 +101,12 @@ function rewriteVectorSources(
   }
 
   if (metadata?.center) {
-    style.center = metadata.center
+    const [longitude, latitude, zoom] = metadata.center
+    style.center = [longitude, latitude]
+
+    if (typeof zoom === 'number') {
+      style.zoom = typeof style.zoom === 'number' ? Math.min(style.zoom, zoom) : zoom
+    }
   }
 
   if (typeof metadata?.maxzoom === 'number') {
@@ -150,17 +118,7 @@ export async function getMapStyle(origin: string) {
   const style = await loadStyleTemplate()
   const metadata = await loadTileMetadata()
 
-  if (getMbtilesPath()) {
-    rewriteVectorSources(style, `${origin}/api/map/tiles/{z}/{x}/{y}`, metadata)
-  }
-
-  if (process.env.MAP_GLYPHS_URL) {
-    style.glyphs = toAbsoluteUrl(process.env.MAP_GLYPHS_URL, origin)
-  }
-
-  if (process.env.MAP_SPRITE_URL) {
-    style.sprite = toAbsoluteUrl(process.env.MAP_SPRITE_URL, origin)
-  }
+  rewriteVectorSources(style, toAbsoluteTileTemplate(LOCAL_TILE_PATH, origin), metadata)
 
   return style
 }

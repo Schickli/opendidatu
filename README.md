@@ -22,18 +22,14 @@ pnpm db:studio
 
 ## Map Assets
 
-The app now serves the map style through `/api/map/style` and can serve vector tiles from a local MBTiles file through `/api/map/tiles/{z}/{x}/{y}`.
+The app serves the map style through `/api/map/style` and vector tiles through `/api/map/tiles/{z}/{x}/{y}`.
 
-Relevant environment variables:
+Map assets are loaded from fixed files in the repository:
 
-- `MAP_MBTILES_PATH`: absolute or repo-relative path to the `.mbtiles` file
-- `MAP_METADATA_JSON_PATH`: optional path to the tiles metadata json
-- `MAP_STYLE_JSON_PATH`: optional path to a local style json template
-- `MAP_STYLE_URL`: optional remote style URL fallback if no local style file is provided
-- `MAP_GLYPHS_URL`: optional override for glyphs endpoint or asset URL
-- `MAP_SPRITE_URL`: optional override for sprite endpoint or asset URL
+- `map/demo.mbtiles`
+- `map/tiles.json`
 
-If `MAP_MBTILES_PATH` is set, vector tile sources in the served style are rewritten to the local tile route automatically.
+There is no map-specific environment configuration anymore.
 
 ## Docker
 
