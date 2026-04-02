@@ -14,6 +14,7 @@ import {
   swissToWgs84,
 } from '@/lib/coordinates'
 import { useData } from '@/lib/data-context'
+import type { ImportedOverlayFeatureCollection } from '@/lib/contracts'
 import type { Posten } from '@/lib/store'
 import { PostenPopupContent } from './posten-popup-content'
 
@@ -46,6 +47,12 @@ const ACTIVE_POSTEN_RADIUS_SOURCE_ID = 'active-posten-radius'
 const ACTIVE_POSTEN_RADIUS_FILL_LAYER_ID = 'active-posten-radius-fill'
 const ACTIVE_POSTEN_RADIUS_LINE_LAYER_ID = 'active-posten-radius-line'
 const ACTIVE_POSTEN_RADIUS_METERS = 5_000
+const IMPORTED_OVERLAY_SOURCE_ID = 'imported-overlay'
+const IMPORTED_OVERLAY_FILL_LAYER_ID = 'imported-overlay-fill'
+const IMPORTED_OVERLAY_LINE_LAYER_ID = 'imported-overlay-line'
+const IMPORTED_OVERLAY_OUTLINE_LAYER_ID = 'imported-overlay-outline'
+const IMPORTED_OVERLAY_POINT_LAYER_ID = 'imported-overlay-point'
+const IMPORTED_OVERLAY_LABEL_LAYER_ID = 'imported-overlay-label'
 
 function toAbsoluteMapUrl(url: string, origin: string) {
   if (/^[a-z][a-z\d+.-]*:/i.test(url)) {
@@ -126,6 +133,52 @@ function createEmptyFeatureCollection(): CircleFeatureCollection {
   }
 }
 
+function createEmptyImportedOverlayFeatureCollection(): ImportedOverlayFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: [],
+  }
+}
+
+function isCoordinatePair(value: unknown): value is [number, number] {
+  return Array.isArray(value) && value.length >= 2 && typeof value[0] === 'number' && typeof value[1] === 'number'
+}
+
+function extendBoundsWithCoordinates(bounds: LngLatBounds, coordinates: unknown): boolean {
+  if (isCoordinatePair(coordinates)) {
+    bounds.extend([coordinates[0], coordinates[1]])
+    return true
+  }
+
+  if (!Array.isArray(coordinates)) {
+    return false
+  }
+
+  return coordinates.reduce((hasExtendedBounds, entry) => {
+    return extendBoundsWithCoordinates(bounds, entry) || hasExtendedBounds
+  }, false)
+}
+
+function getImportedOverlayBounds(featureCollection: ImportedOverlayFeatureCollection) {
+  const bounds = new LngLatBounds()
+
+  const hasBounds = featureCollection.features.reduce((hasAnyBounds, feature) => {
+    if (!feature || typeof feature !== 'object' || !('geometry' in feature)) {
+      return hasAnyBounds
+    }
+
+    const geometry = feature.geometry
+
+    if (!geometry || typeof geometry !== 'object' || !('coordinates' in geometry)) {
+      return hasAnyBounds
+    }
+
+    return extendBoundsWithCoordinates(bounds, geometry.coordinates) || hasAnyBounds
+  }, false)
+
+  return hasBounds ? bounds : null
+}
+
 function createCircleFeatureCollection(
   center: [number, number],
   radiusMeters: number,
@@ -178,6 +231,7 @@ export function ZentraleMap() {
   const markersRef = useRef<Marker[]>([])
   const resizeObserverRef = useRef<ResizeObserver | null>(null)
   const hasFittedInitialBoundsRef = useRef(false)
+  const lastImportedOverlayFitKeyRef = useRef<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const {
     posten,
@@ -186,6 +240,7 @@ export function ZentraleMap() {
     recentMeldungenByPosten,
     selectedPostenId,
     setSelectedPostenId,
+    importedOverlay,
   } = useData()
 
   const lastHourCountLookup = useMemo(() => {
@@ -231,6 +286,11 @@ export function ZentraleMap() {
               data: createEmptyFeatureCollection(),
             })
 
+            map.addSource(IMPORTED_OVERLAY_SOURCE_ID, {
+              type: 'geojson',
+              data: createEmptyImportedOverlayFeatureCollection() as Parameters<GeoJSONSource['setData']>[0],
+            })
+
             map.addLayer({
               id: ACTIVE_POSTEN_RADIUS_FILL_LAYER_ID,
               type: 'fill',
@@ -249,6 +309,90 @@ export function ZentraleMap() {
                 'line-color': '#111827',
                 'line-opacity': 0.45,
                 'line-width': 2,
+              },
+            })
+
+            map.addLayer({
+              id: IMPORTED_OVERLAY_FILL_LAYER_ID,
+              type: 'fill',
+              source: IMPORTED_OVERLAY_SOURCE_ID,
+              filter: ['==', ['geometry-type'], 'Polygon'],
+              paint: {
+                'fill-color': '#0f766e',
+                'fill-opacity': 0.16,
+              },
+            })
+
+            map.addLayer({
+              id: IMPORTED_OVERLAY_LINE_LAYER_ID,
+              type: 'line',
+              source: IMPORTED_OVERLAY_SOURCE_ID,
+              filter: ['==', ['geometry-type'], 'LineString'],
+              paint: {
+                'line-color': '#0f766e',
+                'line-width': 3,
+                'line-opacity': 0.9,
+              },
+            })
+
+            map.addLayer({
+              id: IMPORTED_OVERLAY_OUTLINE_LAYER_ID,
+              type: 'line',
+              source: IMPORTED_OVERLAY_SOURCE_ID,
+              filter: ['==', ['geometry-type'], 'Polygon'],
+              paint: {
+                'line-color': '#115e59',
+                'line-width': 2,
+                'line-opacity': 0.95,
+              },
+            })
+
+            map.addLayer({
+              id: IMPORTED_OVERLAY_POINT_LAYER_ID,
+              type: 'circle',
+              source: IMPORTED_OVERLAY_SOURCE_ID,
+              filter: [
+                'all',
+                ['==', ['geometry-type'], 'Point'],
+                ['!=', ['coalesce', ['get', 'type'], ''], 'annotation'],
+              ],
+              paint: {
+                'circle-radius': 5,
+                'circle-color': '#0f766e',
+                'circle-stroke-color': '#042f2e',
+                'circle-stroke-width': 1.5,
+              },
+            })
+
+            map.addLayer({
+              id: IMPORTED_OVERLAY_LABEL_LAYER_ID,
+              type: 'symbol',
+              source: IMPORTED_OVERLAY_SOURCE_ID,
+              filter: [
+                'all',
+                ['==', ['geometry-type'], 'Point'],
+                [
+                  'any',
+                  ['has', 'name'],
+                  ['has', 'title'],
+                  ['has', 'label'],
+                  ['==', ['coalesce', ['get', 'type'], ''], 'annotation'],
+                ],
+              ],
+              layout: {
+                'text-field': ['coalesce', ['get', 'name'], ['get', 'title'], ['get', 'label'], ''],
+                'text-size': ['*', 12, ['coalesce', ['to-number', ['get', 'label-scale']], 1]],
+                'text-font': ['Noto Sans Regular'],
+                'text-offset': [0, -1.1],
+                'text-anchor': 'top',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+              },
+              paint: {
+                'text-color': ['coalesce', ['get', 'label-color'], '#111827'],
+                'text-opacity': ['coalesce', ['to-number', ['get', 'label-opacity']], 1],
+                'text-halo-color': 'rgba(255, 255, 255, 0.9)',
+                'text-halo-width': 1.5,
               },
             })
 
@@ -303,6 +447,41 @@ export function ZentraleMap() {
       createCircleFeatureCollection([lng, lat], ACTIVE_POSTEN_RADIUS_METERS),
     )
   }, [mapReady, posten, selectedPostenId])
+
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !mapReady) return
+
+    const source = map.getSource(IMPORTED_OVERLAY_SOURCE_ID) as GeoJSONSource | undefined
+    if (!source) return
+
+    if (!importedOverlay) {
+      lastImportedOverlayFitKeyRef.current = null
+      source.setData(createEmptyImportedOverlayFeatureCollection() as Parameters<GeoJSONSource['setData']>[0])
+      return
+    }
+
+    source.setData(importedOverlay.data as Parameters<GeoJSONSource['setData']>[0])
+
+    const fitKey = `${importedOverlay.fileName}:${importedOverlay.uploadedAt}`
+
+    if (lastImportedOverlayFitKeyRef.current === fitKey) {
+      return
+    }
+
+    const bounds = getImportedOverlayBounds(importedOverlay.data)
+
+    if (!bounds) {
+      return
+    }
+
+    lastImportedOverlayFitKeyRef.current = fitKey
+    map.fitBounds(bounds, {
+      padding: 56,
+      maxZoom: 14,
+      duration: 0,
+    })
+  }, [importedOverlay, mapReady])
 
   useEffect(() => {
     const map = mapInstanceRef.current

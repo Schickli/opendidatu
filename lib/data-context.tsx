@@ -1,12 +1,9 @@
 'use client'
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import type {
-  MeldungType,
-  Meldung,
-  Posten,
-} from './store'
+import type { ImportedOverlayRecord } from '@/lib/contracts'
 import {
+  clearImportedOverlay as clearImportedOverlayRequest,
   createMeldung as createMeldungRequest,
   createMessageType as createMessageTypeRequest,
   createPosten as createPostenRequest,
@@ -14,7 +11,9 @@ import {
   deleteMessageType as deleteMessageTypeRequest,
   deletePosten as deletePostenRequest,
   fetchBootstrapSnapshot,
+  fetchImportedOverlay,
   fetchMeldungenPage,
+  uploadImportedOverlay as uploadImportedOverlayRequest,
   updateMeldung as updateMeldungRequest,
   updateMessageType as updateMessageTypeRequest,
   updatePosten as updatePostenRequest,
@@ -25,6 +24,7 @@ import type {
   MeldungLastHourCount,
   PostenRecentMeldungen,
 } from '@/lib/contracts'
+import type { MeldungType, Meldung, Posten } from './store'
 
 const MELDUNGEN_PAGE_SIZE = 100
 const DEFAULT_MELDUNGEN_FILTERS: MeldungenFilters = {
@@ -72,6 +72,15 @@ interface DataContextType {
   isLoading: boolean
   error: string | null
   refreshData: () => Promise<void>
+
+  // Imported overlay
+  importedOverlay: ImportedOverlayRecord | null
+  isLoadingImportedOverlay: boolean
+  isUploadingImportedOverlay: boolean
+  overlayError: string | null
+  loadImportedOverlay: () => Promise<void>
+  uploadImportedOverlay: (file: File) => Promise<void>
+  clearImportedOverlay: () => Promise<void>
 }
 
 const DataContext = createContext<DataContextType | null>(null)
@@ -88,6 +97,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [hasMoreMeldungen, setHasMoreMeldungen] = useState(false)
   const [meldungenFilters, setMeldungenFilters] = useState<MeldungenFilters>(DEFAULT_MELDUNGEN_FILTERS)
   const [selectedPostenId, setSelectedPostenId] = useState<number | null>(null)
+  const [importedOverlay, setImportedOverlay] = useState<ImportedOverlayRecord | null>(null)
+  const [isLoadingImportedOverlay, setIsLoadingImportedOverlay] = useState(true)
+  const [isUploadingImportedOverlay, setIsUploadingImportedOverlay] = useState(false)
+  const [overlayError, setOverlayError] = useState<string | null>(null)
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const [isBootstrapLoaded, setIsBootstrapLoaded] = useState(false)
   const [isLoadingMeldungen, setIsLoadingMeldungen] = useState(false)
@@ -165,6 +178,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [applyBootstrap])
 
+  const loadImportedOverlay = useCallback(async () => {
+    setIsLoadingImportedOverlay(true)
+
+    try {
+      const response = await fetchImportedOverlay()
+      setImportedOverlay(response.overlay)
+      setOverlayError(null)
+    } catch (loadError) {
+      setOverlayError(
+        loadError instanceof Error
+          ? loadError.message
+          : 'Overlay konnte nicht geladen werden.'
+      )
+    } finally {
+      setIsLoadingImportedOverlay(false)
+    }
+  }, [])
+
   const loadMoreMeldungen = useCallback(async () => {
     if (
       isLoadingMeldungen ||
@@ -215,6 +246,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void refreshData()
   }, [refreshData])
+
+  useEffect(() => {
+    void loadImportedOverlay()
+  }, [loadImportedOverlay])
 
   useEffect(() => {
     if (!isBootstrapLoaded) {
@@ -290,6 +325,44 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [runMutation]
   )
 
+  const uploadImportedOverlay = useCallback(async (file: File) => {
+    setIsUploadingImportedOverlay(true)
+
+    try {
+      const response = await uploadImportedOverlayRequest(file)
+      setImportedOverlay(response.overlay)
+      setOverlayError(null)
+    } catch (uploadError) {
+      setOverlayError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : 'Overlay konnte nicht gespeichert werden.'
+      )
+      throw uploadError
+    } finally {
+      setIsUploadingImportedOverlay(false)
+    }
+  }, [])
+
+  const clearImportedOverlay = useCallback(async () => {
+    setIsUploadingImportedOverlay(true)
+
+    try {
+      const response = await clearImportedOverlayRequest()
+      setImportedOverlay(response.overlay)
+      setOverlayError(null)
+    } catch (clearError) {
+      setOverlayError(
+        clearError instanceof Error
+          ? clearError.message
+          : 'Overlay konnte nicht geloescht werden.'
+      )
+      throw clearError
+    } finally {
+      setIsUploadingImportedOverlay(false)
+    }
+  }, [])
+
   const value = useMemo(
     () => ({
       posten,
@@ -319,6 +392,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       isLoading: isBootstrapping || !isBootstrapLoaded || isLoadingMeldungen,
       error,
       refreshData,
+      importedOverlay,
+      isLoadingImportedOverlay,
+      isUploadingImportedOverlay,
+      overlayError,
+      loadImportedOverlay,
+      uploadImportedOverlay,
+      clearImportedOverlay,
     }),
     [
       posten,
@@ -348,6 +428,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       isLoadingMeldungen,
       error,
       refreshData,
+      importedOverlay,
+      isLoadingImportedOverlay,
+      isUploadingImportedOverlay,
+      overlayError,
+      loadImportedOverlay,
+      uploadImportedOverlay,
+      clearImportedOverlay,
     ]
   )
 

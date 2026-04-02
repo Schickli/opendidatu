@@ -37,6 +37,7 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 ENV DATABASE_PATH=/app/data/opendidatu.sqlite
+ENV IMPORTED_OVERLAY_DIR=/app/data/imports
 ENV MAP_DATA_DIR=/app/map
 ENV MAP_AUTO_DOWNLOAD=true
 

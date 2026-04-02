@@ -8,7 +8,7 @@ import { seedSampleDataIfNeeded } from '@/lib/server/seed'
 let sqlite: Database.Database | null = null
 let db: BetterSQLite3Database<typeof schema> | null = null
 
-function resolveDatabasePath() {
+export function resolveDatabasePath() {
   const configuredPath = process.env.DATABASE_PATH
 
   if (configuredPath) {

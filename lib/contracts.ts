@@ -71,6 +71,23 @@ export const bootstrapSnapshotSchema = z.object({
   recentMeldungenByPosten: z.array(postenRecentMeldungenSchema),
 })
 
+export const importedOverlayFeatureCollectionSchema = z.object({
+  type: z.literal('FeatureCollection'),
+  features: z.array(z.unknown()),
+})
+
+export const importedOverlayRecordSchema = z.object({
+  fileName: z.string().min(1),
+  uploadedAt: z.number().nonnegative(),
+  featureCount: z.number().int().nonnegative(),
+  coordinateCount: z.number().int().nonnegative(),
+  data: importedOverlayFeatureCollectionSchema,
+})
+
+export const importedOverlayResponseSchema = z.object({
+  overlay: importedOverlayRecordSchema.nullable(),
+})
+
 export const meldungenPageSchema = z.object({
   meldungen: z.array(meldungSchema),
   totalCount: z.number().int().nonnegative(),
@@ -107,6 +124,9 @@ export const updateMeldungSchema = z.object({
 })
 
 export type BootstrapSnapshot = z.infer<typeof bootstrapSnapshotSchema>
+export type ImportedOverlayFeatureCollection = z.infer<typeof importedOverlayFeatureCollectionSchema>
+export type ImportedOverlayRecord = z.infer<typeof importedOverlayRecordSchema>
+export type ImportedOverlayResponse = z.infer<typeof importedOverlayResponseSchema>
 export type MeldungenPage = z.infer<typeof meldungenPageSchema>
 export type MeldungLastHourCount = z.infer<typeof meldungLastHourCountSchema>
 export type PostenRecentMeldungen = z.infer<typeof postenRecentMeldungenSchema>

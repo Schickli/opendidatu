@@ -4,6 +4,7 @@ import {
   createMeldungSchema,
   createMessageTypeSchema,
   createPostenSchema,
+  importedOverlayResponseSchema,
   meldungenPageSchema,
   type MeldungenFilters,
   updateMeldungSchema,
@@ -44,6 +45,10 @@ async function requestJson<TPayload>(
 
 export function fetchBootstrapSnapshot() {
   return requestJson('/api/bootstrap', bootstrapSnapshotSchema, { cache: 'no-store' })
+}
+
+export function fetchImportedOverlay() {
+  return requestJson('/api/imported-overlay', importedOverlayResponseSchema, { cache: 'no-store' })
 }
 
 export function fetchMeldungenPage(options?: {
@@ -143,6 +148,32 @@ export function updateMeldung(id: number, data: UpdateMeldungInput) {
 
 export function deleteMeldung(id: number) {
   return requestJson(`/api/meldungen/${id}`, bootstrapSnapshotSchema, {
+    method: 'DELETE',
+  })
+}
+
+export async function uploadImportedOverlay(file: File) {
+  const formData = new FormData()
+  formData.set('file', file)
+
+  const response = await fetch('/api/imported-overlay', {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errorPayload = await response.json().catch(() => null)
+    const message =
+      (errorPayload && typeof errorPayload.error === 'string' && errorPayload.error) ||
+      'Die Datei konnte nicht importiert werden.'
+    throw new Error(message)
+  }
+
+  return importedOverlayResponseSchema.parse(await response.json())
+}
+
+export function clearImportedOverlay() {
+  return requestJson('/api/imported-overlay', importedOverlayResponseSchema, {
     method: 'DELETE',
   })
 }
