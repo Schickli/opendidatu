@@ -2,11 +2,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 
-const STYLE_TEMPLATE_URL =
-  'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json'
-const MAP_DIRECTORY = path.join(process.cwd(), 'map')
-const MAP_MBTILES_PATH = path.join(MAP_DIRECTORY, 'demo.mbtiles')
-const MAP_TILE_METADATA_PATH = path.join(MAP_DIRECTORY, 'tiles.json')
+const DEFAULT_MAP_DIRECTORY = path.join(process.cwd(), 'map')
 const LOCAL_TILE_PATH = '/api/map/tiles/{z}/{x}/{y}'
 
 type VectorSource = {
@@ -36,25 +32,49 @@ type TileMetadata = {
 
 let mbtilesDatabase: Database.Database | null = null
 
+function resolveMapDirectory() {
+  const configuredDirectory = process.env.MAP_DATA_DIR
+
+  if (configuredDirectory) {
+    return path.resolve(configuredDirectory)
+  }
+
+  return DEFAULT_MAP_DIRECTORY
+}
+
+function resolveMapAssetPath(envKey: string, fileName: string) {
+  const configuredPath = process.env[envKey]
+
+  if (configuredPath) {
+    return path.resolve(configuredPath)
+  }
+
+  return path.join(resolveMapDirectory(), fileName)
+}
+
+function getMapMbtilesPath() {
+  return resolveMapAssetPath('MAP_MBTILES_PATH', 'demo.mbtiles')
+}
+
+function getMapTileMetadataPath() {
+  return resolveMapAssetPath('MAP_TILE_METADATA_PATH', 'tiles.json')
+}
+
+function getStyleTemplatePath() {
+  return resolveMapAssetPath('MAP_STYLE_PATH', 'style.json')
+}
+
 async function loadJsonFile<T>(filePath: string) {
   const raw = await readFile(filePath, 'utf8')
   return JSON.parse(raw) as T
 }
 
 async function loadStyleTemplate(): Promise<StyleDocument> {
-  const response = await fetch(STYLE_TEMPLATE_URL, {
-    cache: 'no-store',
-  })
-
-  if (!response.ok) {
-    throw new Error('Die Kartenkonfiguration konnte nicht geladen werden.')
-  }
-
-  return (await response.json()) as StyleDocument
+  return loadJsonFile<StyleDocument>(getStyleTemplatePath())
 }
 
 async function loadTileMetadata() {
-  return loadJsonFile<TileMetadata>(MAP_TILE_METADATA_PATH)
+  return loadJsonFile<TileMetadata>(getMapTileMetadataPath())
 }
 
 function toAbsoluteTileTemplate(tilePath: string, origin: string) {
@@ -66,7 +86,7 @@ function getMbtilesDatabase() {
     return mbtilesDatabase
   }
 
-  mbtilesDatabase = new Database(MAP_MBTILES_PATH, { readonly: true })
+  mbtilesDatabase = new Database(getMapMbtilesPath(), { readonly: true })
   return mbtilesDatabase
 }
 

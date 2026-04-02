@@ -10,3 +10,5 @@ node_modules/
 .DS_Store
 *.mbtiles
 *.sqlite*
+map/style.json
+map/tiles.json

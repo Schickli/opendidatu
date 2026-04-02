@@ -1,0 +1,12 @@
+.git
+.next
+data
+node_modules
+npm-debug.log
+pnpm-debug.log
+map/demo.mbtiles
+map/tiles.json
+map/style.json
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
