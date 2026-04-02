@@ -9,7 +9,7 @@ The project now includes Docker packaging for a published-image workflow.
 Pushes to `main` automatically build and publish the Docker image to GitHub Container Registry through [docker-publish.yml](.github/workflows/docker-publish.yml). The published image path is:
 
 ```bash
-ghcr.io/<owner>/<repo>:latest
+ghcr.io/schickli/opendidatu:latest
 ```
 
 Build the image locally:
@@ -21,11 +21,7 @@ docker build -t opendidatu:latest .
 Run it with persistent named volumes for the SQLite database and map assets:
 
 ```bash
-docker run --name opendidatu \
-  -p 3000:3000 \
-  -v opendidatu-data:/app/data \
-  -v opendidatu-map:/app/map \
-  opendidatu:latest
+docker run --name opendidatu -p 3000:3000 -v opendidatu-data:/app/data -v opendidatu-map:/app/map ghcr.io/schickli/opendidatu:latest
 ```
 
 On first startup, the container bootstrap downloads the map metadata, the map style JSON, the sprite assets, and the mbtiles archive into the mounted map volume. The database file is created automatically in the mounted data volume.
@@ -49,7 +45,15 @@ Persistence behavior:
 - Recreating the container keeps the database as long as `opendidatu-data` is kept.
 - The large map download stays out of the image and is reused as long as `opendidatu-map` is kept.
 - Set `MAP_AUTO_DOWNLOAD=false` if you want to mount pre-provisioned map files instead of downloading them on first start.
-- Once you publish the image to a registry, the target machine only needs the `docker run` command and does not need a repository checkout.
+
+When you are running this service so that other people in the same network can access it, you might want them to be able to access the application under opendidatu.local instead of the IP address. You can achieve that by adding the following line to your hosts file: 
+(On Windows, the hosts file is located at `C:\Windows\System32\drivers\etc\hosts`, on Linux and MacOS it's at `/etc/hosts`)
+
+```
+127.0.0.1 opendidatu.local
+```
+
+Then you can access the application at `http://opendidatu.local:3000`.
 
 ## Local Development
 

@@ -88,10 +88,6 @@ async function loadTileMetadata() {
   return loadJsonFile<TileMetadata>(getMapTileMetadataPath())
 }
 
-function toAbsoluteTileTemplate(tilePath: string, origin: string) {
-  return `${origin.replace(/\/$/, '')}${tilePath}`
-}
-
 function getMbtilesDatabase() {
   if (mbtilesDatabase) {
     return mbtilesDatabase
@@ -145,12 +141,12 @@ function rewriteVectorSources(
   }
 }
 
-export async function getMapStyle(origin: string) {
+export async function getMapStyle() {
   const style = await loadStyleTemplate()
   const metadata = await loadTileMetadata()
 
-  rewriteVectorSources(style, toAbsoluteTileTemplate(LOCAL_TILE_PATH, origin), metadata)
-  style.sprite = toAbsoluteTileTemplate(LOCAL_SPRITE_PATH, origin)
+  rewriteVectorSources(style, LOCAL_TILE_PATH, metadata)
+  style.sprite = LOCAL_SPRITE_PATH
 
   return style
 }
