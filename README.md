@@ -2,47 +2,15 @@
 
 Tries to be a simple alternative to Didatu, with a focus on ease of use. The main goal is to have something for training purposes until a new full featured application is in place.
 
-## Database
-
-By default, the SQLite database is created at `./data/opendidatu.sqlite`.
-
-You can override that location with:
-
-```bash
-DATABASE_PATH=/absolute/path/to/opendidatu.sqlite
-```
-
-Useful database commands:
-
-```bash
-pnpm db:generate
-pnpm db:push
-pnpm db:studio
-```
-
-## Map Assets
-
-The app serves the map style through `/api/map/style` and vector tiles through `/api/map/tiles/{z}/{x}/{y}`.
-
-Map assets default to files in `./map`, but can be overridden at runtime:
-
-- `map/demo.mbtiles`
-- `map/tiles.json`
-- `map/style.json`
-
-Relevant environment variables:
-
-```bash
-MAP_DATA_DIR=./map
-MAP_MBTILES_PATH=./map/demo.mbtiles
-MAP_TILE_METADATA_PATH=./map/tiles.json
-MAP_STYLE_PATH=./map/style.json
-MAP_AUTO_DOWNLOAD=true
-```
-
 ## Docker
 
 The project now includes Docker packaging for a published-image workflow.
+
+Pushes to `main` automatically build and publish the Docker image to GitHub Container Registry through [docker-publish.yml](.github/workflows/docker-publish.yml). The published image path is:
+
+```bash
+ghcr.io/<owner>/<repo>:latest
+```
 
 Build the image locally:
 
@@ -92,3 +60,33 @@ pnpm dev
 ```
 
 The application is then available at `http://localhost:3000`.
+
+## Database
+
+By default, the SQLite database is created at `./data/opendidatu.sqlite`.
+
+You can override that location with:
+
+```bash
+DATABASE_PATH=/absolute/path/to/opendidatu.sqlite
+```
+
+## Map Assets
+
+The app serves the map style through `/api/map/style` and vector tiles through `/api/map/tiles/{z}/{x}/{y}`.
+
+Map assets default to files in `./map`, but can be overridden at runtime:
+
+- `map/demo.mbtiles`
+- `map/tiles.json`
+- `map/style.json`
+
+Relevant environment variables:
+
+```bash
+MAP_DATA_DIR=./map
+MAP_MBTILES_PATH=./map/demo.mbtiles
+MAP_TILE_METADATA_PATH=./map/tiles.json
+MAP_STYLE_PATH=./map/style.json
+MAP_AUTO_DOWNLOAD=true
+```
