@@ -16,6 +16,62 @@ import { useData } from '@/lib/data-context'
 import type { Posten, Meldung } from '@/lib/store'
 import { PostenPopupContent } from './posten-popup-content'
 
+type MapStyleSource = {
+  tiles?: string[]
+  url?: string
+  [key: string]: unknown
+}
+
+type MapStyleDocument = Exclude<ConstructorParameters<typeof MapLibreMap>[0]['style'], string | undefined> & {
+  glyphs?: string
+  sprite?: string
+  sources?: Record<string, MapStyleSource>
+  [key: string]: unknown
+}
+
+function toAbsoluteMapUrl(url: string, origin: string) {
+  if (/^[a-z][a-z\d+.-]*:/i.test(url)) {
+    return url
+  }
+
+  return new URL(url, origin).toString().replace(/%7B/gi, '{').replace(/%7D/gi, '}')
+}
+
+function absolutizeMapStyle(style: MapStyleDocument, origin: string) {
+  if (style.glyphs) {
+    style.glyphs = toAbsoluteMapUrl(style.glyphs, origin)
+  }
+
+  if (style.sprite) {
+    style.sprite = toAbsoluteMapUrl(style.sprite, origin)
+  }
+
+  if (style.sources) {
+    for (const source of Object.values(style.sources)) {
+      if (source.url) {
+        source.url = toAbsoluteMapUrl(source.url, origin)
+      }
+
+      if (source.tiles) {
+        source.tiles = source.tiles.map((tileUrl) => toAbsoluteMapUrl(tileUrl, origin))
+      }
+    }
+  }
+
+  return style
+}
+
+async function loadMapStyle() {
+  const response = await fetch('/api/map/style')
+
+  if (!response.ok) {
+    throw new Error(`Unable to load map style (${response.status}).`)
+  }
+
+  const style = (await response.json()) as MapStyleDocument
+  return absolutizeMapStyle(style, window.location.origin)
+}
+
 function getMeldungenLastHourByTyp(
   postenId: number,
   typeId: number,
@@ -85,27 +141,37 @@ export function ZentraleMap() {
 
     let cancelled = false
     const frameId = window.requestAnimationFrame(() => {
-      if (cancelled || !mapRef.current || mapInstanceRef.current) return
+      void (async () => {
+        if (cancelled || !mapRef.current || mapInstanceRef.current) return
 
-      const map = new MapLibreMap({
-        container: mapRef.current,
-        style: '/api/map/style',
-        center: [8.265, 46.786],
-        zoom: 10,
-        attributionControl: {},
-      })
+        try {
+          const style = await loadMapStyle()
 
-      map.on('load', () => {
-        setMapReady(true)
-      })
+          if (cancelled || !mapRef.current || mapInstanceRef.current) return
 
-      map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right')
-      mapInstanceRef.current = map
+          const map = new MapLibreMap({
+            container: mapRef.current,
+            style,
+            center: [8.265, 46.786],
+            zoom: 10,
+            attributionControl: {},
+          })
 
-      resizeObserverRef.current = new ResizeObserver(() => {
-        map.resize()
-      })
-      resizeObserverRef.current.observe(mapRef.current)
+          map.on('load', () => {
+            setMapReady(true)
+          })
+
+          map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right')
+          mapInstanceRef.current = map
+
+          resizeObserverRef.current = new ResizeObserver(() => {
+            map.resize()
+          })
+          resizeObserverRef.current.observe(mapRef.current)
+        } catch (error) {
+          console.error('Failed to initialize map style.', error)
+        }
+      })()
     })
 
     return () => {

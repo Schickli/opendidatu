@@ -106,3 +106,9 @@ MAP_STYLE_PATH=./map/style.json
 MAP_SPRITE_BASE_URL=https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/sprite/sprite
 MAP_AUTO_DOWNLOAD=true
 ```
+
+## Todo's
+
+- [ ] Add a csv export endpoint for the data
+- [ ] Add a GPX import option for additional data on the map
+- [ ] Add integration tests for the API endpoints
