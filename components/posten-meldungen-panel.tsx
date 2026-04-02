@@ -227,7 +227,7 @@ export function PostenMeldungenPanel() {
         )}
 
         <div className="border-t-2 border-border">
-          <div className="flex items-center justify-between px-3 py-2">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background px-3 py-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               {selectedPostenId
                 ? `Meldungen — ${

@@ -11,6 +11,11 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import type { Meldung, Meldungstyp, Posten } from "@/lib/store";
 
 interface PostenListItemProps {
@@ -74,31 +79,40 @@ export function PostenListItem({
   );
 
   return (
-    <div>
+    <Collapsible open={isExpanded} onOpenChange={() => onToggleExpand(posten.id)}>
       <div
         className={`flex items-start gap-2 px-3 py-2 transition-colors hover:bg-secondary ${
           isSelected ? "bg-secondary" : ""
         }`}
       >
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="h-10 shrink-0 self-stretch rounded-none"
+            aria-label={isExpanded ? "Zuklappen" : "Aufklappen"}
+          >
+            {isExpanded ? (
+              <ChevronDown className="size-3 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="size-3 text-muted-foreground" />
+            )}
+          </Button>
+        </CollapsibleTrigger>
+
         <Button
           type="button"
           variant="ghost"
-          className="h-auto min-w-0 flex-1 justify-start gap-0 rounded-none px-0 py-0 font-normal hover:bg-transparent"
-          onClick={() => {
-            onToggleExpand(posten.id);
-            onToggleSelect(posten.id, isSelected);
-          }}
-          aria-label={isExpanded ? "Zuklappen" : "Aufklappen"}
+          className="h-auto min-w-0 flex-1 justify-start rounded-none px-0 py-1 font-normal hover:bg-transparent"
+          onClick={() => onToggleSelect(posten.id, isSelected)}
+          aria-pressed={isSelected}
+          aria-label={isSelected ? `${posten.name} abwaehlen` : `${posten.name} auswaehlen`}
         >
-          <span className="flex min-h-10 shrink-0 items-center self-stretch px-1.5 text-muted-foreground">
-            {isExpanded ? (
-              <ChevronDown className="size-3" />
-            ) : (
-              <ChevronRight className="size-3" />
-            )}
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col items-start py-1 text-left">
-            <span className="text-xs font-bold text-foreground">{posten.name}</span>
+          <span className="flex min-w-0 flex-1 flex-col items-start text-left">
+            <span className="whitespace-normal break-all text-xs leading-tight font-bold text-foreground [overflow-wrap:anywhere]">
+              {posten.name}
+            </span>
             <span className="text-xs text-muted-foreground">
               {posten.coordinates.lat.toFixed(4)}, {" "}
               {posten.coordinates.lng.toFixed(4)}
@@ -148,15 +162,15 @@ export function PostenListItem({
             size="icon-sm"
             onClick={() => onDelete(posten.id)}
             className="hover:text-destructive"
-            aria-label={`${posten.name} loeschen`}
-            title="Loeschen"
+            aria-label={`${posten.name} löschen`}
+            title="Löschen"
           >
             <Trash2 />
           </Button>
         </div>
       </div>
 
-      {isExpanded && (
+      <CollapsibleContent>
         <div className="border-t border-dashed border-border bg-secondary/50 px-3 py-2">
           {typenMitMinimum.length === 0 ? (
             <div className="px-5 py-1 text-xs text-muted-foreground">
@@ -207,7 +221,7 @@ export function PostenListItem({
             </div>
           )}
         </div>
-      )}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

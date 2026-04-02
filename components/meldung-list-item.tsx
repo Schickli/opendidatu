@@ -30,18 +30,25 @@ export function MeldungListItem({
   return (
     <div className="flex items-start gap-2 px-3 py-1.5">
       <MessageSquare className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
-      <div className="flex w-full justify-between">
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <span className="text-xs font-bold text-foreground">{typName}</span>
-            {showPostenName && postenName && (
-              <span className="text-xs text-muted-foreground">{postenName}</span>
-            )}
+      <div className="flex min-w-0 w-full justify-between gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <span className="min-w-0 flex-1 text-xs font-bold leading-tight text-foreground">
+                {typName}
+              </span>
 
-            <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
-              <Clock className="size-3" />
-              <span className="text-xs">{formatTime(meldung.erstelltAm)}</span>
-            </span>
+              <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
+                <Clock className="size-3" />
+                <span className="text-xs">{formatTime(meldung.erstelltAm)}</span>
+              </span>
+            </div>
+
+            {showPostenName && postenName ? (
+              <span className="min-w-0 text-xs leading-tight text-muted-foreground break-all [overflow-wrap:anywhere]">
+                {postenName}
+              </span>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-1">
             {meldung.werte.map((wert) => (
@@ -66,8 +73,8 @@ export function MeldungListItem({
           size="icon-sm"
           variant="ghost"
           onClick={() => onDelete(meldung.id)}
-          aria-label="Meldung loeschen"
-          className="ml-1"
+          aria-label="Meldung löschen"
+          className="ml-1 shrink-0"
         >
           <Trash2 />
         </Button>

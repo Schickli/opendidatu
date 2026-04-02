@@ -27,12 +27,12 @@ export function PostenDeleteDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="text-sm uppercase tracking-wider">
-            Posten loeschen
+            Posten löschen
           </DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          Soll der Posten <strong>{postenName}</strong> wirklich geloescht werden?
-          Alle zugehoerigen Meldungen bleiben bestehen.
+          Soll der Posten <strong>{postenName}</strong> wirklich gelöscht werden?
+          Alle zugehörigen Meldungen bleiben bestehen.
         </p>
         <DialogFooter>
           <Button
@@ -43,7 +43,7 @@ export function PostenDeleteDialog({
             Abbrechen
           </Button>
           <Button variant="destructive" onClick={onConfirm} className="text-xs">
-            Loeschen
+            Löschen
           </Button>
         </DialogFooter>
       </DialogContent>

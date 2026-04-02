@@ -25,11 +25,11 @@ export function MeldungDeleteDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="text-sm uppercase tracking-wider">
-            Meldung loeschen
+            Meldung löschen
           </DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          Soll diese Meldung wirklich geloescht werden?
+          Soll diese Meldung wirklich gelöscht werden?
         </p>
         <DialogFooter>
           <Button
@@ -40,7 +40,7 @@ export function MeldungDeleteDialog({
             Abbrechen
           </Button>
           <Button variant="destructive" onClick={onConfirm} className="text-xs">
-            Loeschen
+            Löschen
           </Button>
         </DialogFooter>
       </DialogContent>

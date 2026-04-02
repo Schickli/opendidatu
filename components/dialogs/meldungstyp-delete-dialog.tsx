@@ -27,12 +27,12 @@ export function MeldungstypDeleteDialog({
       <DialogContent className="font-mono">
         <DialogHeader>
           <DialogTitle className="font-mono text-sm uppercase tracking-wider">
-            Meldungstyp loeschen
+            Meldungstyp Löschen
           </DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           Soll der Meldungstyp <strong>{meldungstypName}</strong> wirklich
-          geloescht werden?
+          gelöscht werden?
         </p>
         <DialogFooter>
           <Button
@@ -49,7 +49,7 @@ export function MeldungstypDeleteDialog({
             onClick={onConfirm}
             className="font-mono text-xs"
           >
-            Loeschen
+            Löschen
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -62,8 +62,8 @@ export function MeldungstypListItem({
             size="icon-sm"
             onClick={() => onDelete(typ.id)}
             className="hover:text-destructive"
-            aria-label={`${typ.name} loeschen`}
-            title="Loeschen"
+            aria-label={`${typ.name} löschen`}
+            title="Löschen"
           >
             <Trash2 />
           </Button>
