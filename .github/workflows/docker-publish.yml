@@ -15,6 +15,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:  
+      - name: Lint
+        run: pnpm run lint       
+
   build-and-push:
     runs-on: ubuntu-latest
 
