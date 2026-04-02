@@ -1,5 +1,6 @@
 "use client";
 
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   parseSwissCoordinateInput,
@@ -49,8 +50,7 @@ export function PostenMeldungenPanel() {
     setSelectedPostenId,
   } = useData();
 
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const meldungenScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [postenDialogOpen, setPostenDialogOpen] = useState(false);
   const [editingPostenId, setEditingPostenId] = useState<number | null>(null);
@@ -107,32 +107,48 @@ export function PostenMeldungenPanel() {
     [editingMeldungId, meldungen]
   );
 
-  useEffect(() => {
-    const root = scrollContainerRef.current;
-    const sentinel = loadMoreRef.current;
+  const virtualizedRowCount = meldungen.length + 1;
+  const meldungenVirtualizer = useVirtualizer({
+    count: virtualizedRowCount,
+    getScrollElement: () => meldungenScrollRef.current,
+    estimateSize: (index) => (index >= meldungen.length ? 52 : 112),
+    overscan: 8,
+    getItemKey: (index) => {
+      if (index >= meldungen.length) {
+        return "meldungen-footer";
+      }
 
-    if (!root || !sentinel || !hasMoreMeldungen) {
+      return meldungen[index]?.id ?? `meldung-${index}`;
+    },
+  });
+  const virtualRows = meldungenVirtualizer.getVirtualItems();
+  const topSpacerHeight = virtualRows[0]?.start ?? 0;
+  const bottomSpacerHeight = virtualRows.length > 0
+    ? meldungenVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+    : 0;
+
+  useEffect(() => {
+    if (!hasMoreMeldungen || isLoadingMoreMeldungen || isLoadingMeldungen) {
       return;
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          void loadMoreMeldungen();
-        }
-      },
-      {
-        root,
-        rootMargin: "0px 0px 240px 0px",
-      }
-    );
+    const lastVirtualRow = virtualRows.at(-1);
 
-    observer.observe(sentinel);
+    if (!lastVirtualRow) {
+      return;
+    }
 
-    return () => {
-      observer.disconnect();
-    };
-  }, [hasMoreMeldungen, loadMoreMeldungen, meldungen.length, selectedPostenId]);
+    if (lastVirtualRow.index >= meldungen.length) {
+      void loadMoreMeldungen();
+    }
+  }, [
+    hasMoreMeldungen,
+    isLoadingMeldungen,
+    isLoadingMoreMeldungen,
+    loadMoreMeldungen,
+    meldungen.length,
+    virtualRows,
+  ]);
 
   function resetMeldungForm() {
     setEditingMeldungId(null);
@@ -328,40 +344,42 @@ export function PostenMeldungenPanel() {
         </div>
       </div>
 
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-        {posten.length === 0 ? (
-          <div className="p-3 text-xs text-muted-foreground">
-            Keine Posten vorhanden. Erstellen Sie einen neuen Posten.
-          </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {posten.map((p) => {
-              const isExpanded = expandedPosten.has(p.id);
-              const isSelected = selectedPostenId === p.id;
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="max-h-[45%] shrink-0 overflow-y-auto">
+          {posten.length === 0 ? (
+            <div className="p-3 text-xs text-muted-foreground">
+              Keine Posten vorhanden. Erstellen Sie einen neuen Posten.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {posten.map((p) => {
+                const isExpanded = expandedPosten.has(p.id);
+                const isSelected = selectedPostenId === p.id;
 
-              return (
-                <PostenListItem
-                  key={p.id}
-                  posten={p}
-                  isExpanded={isExpanded}
-                  isSelected={isSelected}
-                  typesWithMinimum={typesWithMinimum}
-                  getLastHourCount={getLastHourCount}
-                  onToggleExpand={toggleExpand}
-                  onToggleSelect={(postenId, selected) =>
-                    setSelectedPostenId(selected ? null : postenId)
-                  }
-                  onCreateMeldung={openCreateMeldung}
-                  onEdit={openEditPosten}
-                  onDelete={setDeletePostenConfirm}
-                />
-              );
-            })}
-          </div>
-        )}
+                return (
+                  <PostenListItem
+                    key={p.id}
+                    posten={p}
+                    isExpanded={isExpanded}
+                    isSelected={isSelected}
+                    typesWithMinimum={typesWithMinimum}
+                    getLastHourCount={getLastHourCount}
+                    onToggleExpand={toggleExpand}
+                    onToggleSelect={(postenId, selected) =>
+                      setSelectedPostenId(selected ? null : postenId)
+                    }
+                    onCreateMeldung={openCreateMeldung}
+                    onEdit={openEditPosten}
+                    onDelete={setDeletePostenConfirm}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-        <div className="border-t-2 border-border">
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background px-3 py-2">
+        <div className="flex min-h-0 flex-1 flex-col border-t-2 border-border">
+          <div className="flex items-center justify-between border-b border-border bg-background px-3 py-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               {selectedPostenId
                 ? `Meldungen — ${
@@ -379,24 +397,60 @@ export function PostenMeldungenPanel() {
               Keine Meldungen vorhanden
             </div>
           ) : (
-            <div className="divide-y divide-border">
-              {meldungen.map((n) => {
-                return (
-                  <MeldungListItem
-                    key={n.id}
-                    meldung={n}
-                    typName={getTypName(n.typeId)}
-                    postenName={posten.find((p) => p.id === n.postenId)?.name || "?"}
-                    showPostenName={!selectedPostenId}
-                    onEdit={() => openEditMeldung(n)}
-                    onDelete={setDeleteMeldungConfirm}
-                  />
-                );
-              })}
-              <div ref={loadMoreRef} className="px-3 py-3 text-center text-xs text-muted-foreground">
-                {isLoadingMoreMeldungen
-                  ? "Weitere Meldungen werden geladen..."
-                  : !hasMoreMeldungen && "Alle Meldungen geladen"}
+            <div ref={meldungenScrollRef} className="min-h-0 flex-1 overflow-y-auto">
+              <div
+                className="w-full"
+                style={{
+                  paddingTop: `${topSpacerHeight}px`,
+                  paddingBottom: `${bottomSpacerHeight}px`,
+                }}
+              >
+                {virtualRows.map((virtualRow) => {
+                  const isFooterRow = virtualRow.index >= meldungen.length;
+
+                  if (isFooterRow) {
+                    return (
+                      <div
+                        key="meldungen-footer"
+                        ref={(node) => {
+                          if (node) {
+                            meldungenVirtualizer.measureElement(node);
+                          }
+                        }}
+                        className="w-full px-3 py-3 text-center text-xs text-muted-foreground"
+                      >
+                        {isLoadingMoreMeldungen && "Weitere Meldungen werden geladen..."}
+                      </div>
+                    );
+                  }
+
+                  const meldung = meldungen[virtualRow.index];
+
+                  if (!meldung) {
+                    return null;
+                  }
+
+                  return (
+                    <div
+                      key={meldung.id}
+                      ref={(node) => {
+                        if (node) {
+                          meldungenVirtualizer.measureElement(node);
+                        }
+                      }}
+                      className="w-full border-b border-border bg-background"
+                    >
+                      <MeldungListItem
+                        meldung={meldung}
+                        typName={getTypName(meldung.typeId)}
+                        postenName={posten.find((p) => p.id === meldung.postenId)?.name || "?"}
+                        showPostenName={!selectedPostenId}
+                        onEdit={() => openEditMeldung(meldung)}
+                        onDelete={setDeleteMeldungConfirm}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
