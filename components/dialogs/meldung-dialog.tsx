@@ -98,7 +98,7 @@ export function MeldungDialog({
               value={selectedPostenForMeldung}
               onValueChange={onPostenChange}
             >
-              <SelectTrigger className="text-base">
+              <SelectTrigger className="w-full min-w-0 text-base">
                 <SelectValue placeholder="Posten waehlen..." />
               </SelectTrigger>
               <SelectContent>
@@ -116,7 +116,7 @@ export function MeldungDialog({
               Meldungstyp
             </label>
             <Select value={selectedTypeId} onValueChange={onTypeChange} disabled={mode === "edit"}>
-              <SelectTrigger className="text-base">
+              <SelectTrigger className="w-full min-w-0 text-base">
                 <SelectValue placeholder="Typ waehlen..." />
               </SelectTrigger>
               <SelectContent>
