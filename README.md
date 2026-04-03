@@ -150,3 +150,6 @@ MAP_AUTO_DOWNLOAD=true
 - [x] Filters to only show certain type of messages in a certain time range
 - [x] Data quality overview with the percentage of valid messages per outpost
 - [ ] Instead of console.error handle errors in a more user friendly way and show them in the UI
+- [ ] Look at a Threema integration for automatic message creation
+- [ ] Implement a permission system for allowing different roles like admin, inspector, reporter
+- [ ] Further load test the solution (Maximum tested currently ca. 24'000 Messages)
