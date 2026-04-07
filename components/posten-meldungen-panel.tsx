@@ -30,14 +30,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Plus, SlidersHorizontal } from "lucide-react";
-import type { MeldungenFilters, MeldungValidityFilter } from "@/lib/contracts";
+import type { MeldungenFilters } from "@/lib/contracts";
+import {
+  MELDUNG_VALIDITY_FILTER_LABELS,
+  type MeldungValidity,
+  type MeldungValidityFilter,
+} from "@/lib/meldung-validity";
 import type { Meldung, MeldungValue, Posten } from "@/lib/store";
-
-const VALIDITY_LABELS: Record<MeldungValidityFilter, string> = {
-  all: "Gültige & ungültige",
-  valid: "Nur gültige",
-  invalid: "Nur ungültige",
-};
 
 function toDateTimeLocalValue(timestamp: number | null) {
   if (timestamp === null) {
@@ -73,7 +72,6 @@ export function PostenMeldungenPanel() {
     updatePosten,
     deletePosten,
     meldungen,
-    meldungenTotalCount,
     hasMoreMeldungen,
     isLoadingMeldungen,
     isLoadingMoreMeldungen,
@@ -104,7 +102,7 @@ export function PostenMeldungenPanel() {
   const [selectedPostenForMeldung, setSelectedPostenForMeldung] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
   const [meldungComment, setMeldungComment] = useState("");
-  const [meldungIsValid, setMeldungIsValid] = useState(true);
+  const [meldungValidity, setMeldungValidity] = useState<MeldungValidity>("review");
   const [deleteMeldungConfirm, setDeleteMeldungConfirm] = useState<number | null>(
     null
   );
@@ -195,7 +193,7 @@ export function PostenMeldungenPanel() {
     setSelectedPostenForMeldung("");
     setValues({});
     setMeldungComment("");
-    setMeldungIsValid(true);
+    setMeldungValidity("review");
   }
 
   function handleMeldungDialogOpenChange(open: boolean) {
@@ -266,7 +264,7 @@ export function PostenMeldungenPanel() {
     );
     setValues({});
     setMeldungComment("");
-    setMeldungIsValid(true);
+    setMeldungValidity("review");
     setMeldungDialogOpen(true);
   }
 
@@ -280,7 +278,7 @@ export function PostenMeldungenPanel() {
       )
     );
     setMeldungComment(meldung.comment);
-    setMeldungIsValid(meldung.isValid);
+    setMeldungValidity(meldung.isValid);
     setMeldungDialogOpen(true);
   }
 
@@ -320,7 +318,7 @@ export function PostenMeldungenPanel() {
           postenId: Number(selectedPostenForMeldung),
           values: meldungValues,
           comment: meldungComment.trim(),
-          isValid: meldungIsValid,
+          isValid: meldungValidity,
         });
       } else {
         await addMeldung({
@@ -328,7 +326,7 @@ export function PostenMeldungenPanel() {
           typeId: Number(selectedTypeId),
           values: meldungValues,
           comment: meldungComment.trim(),
-          isValid: meldungIsValid,
+          isValid: meldungValidity,
         });
       }
 
@@ -542,7 +540,7 @@ export function PostenMeldungenPanel() {
                     }
                   >
                     {(
-                      Object.entries(VALIDITY_LABELS) as Array<[
+                      Object.entries(MELDUNG_VALIDITY_FILTER_LABELS) as Array<[
                         MeldungValidityFilter,
                         string,
                       ]>
@@ -677,7 +675,7 @@ export function PostenMeldungenPanel() {
         selectedTypeId={selectedTypeId}
         values={values}
         meldungComment={meldungComment}
-        meldungIsValid={meldungIsValid}
+        meldungValidity={meldungValidity}
         createdAt={editingMeldung?.createdAt}
         updatedAt={editingMeldung?.updatedAt}
         onOpenChange={handleMeldungDialogOpenChange}
@@ -685,7 +683,7 @@ export function PostenMeldungenPanel() {
         onTypeChange={handleTypeChange}
         onValueChange={handleValueChange}
         onCommentChange={setMeldungComment}
-        onValidityChange={setMeldungIsValid}
+        onValidityChange={setMeldungValidity}
         onSave={handleSaveMeldung}
       />
 

@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { MELDUNG_VALIDITY_LABELS, type MeldungValidity } from "@/lib/meldung-validity";
 import { cn } from "@/lib/utils";
 
 interface MeldungListItemProps {
@@ -37,6 +38,12 @@ function formatTime(timestamp: number) {
     timeZone: "Europe/Zurich",
   });
 }
+
+const VALIDITY_INDICATOR_CLASSES: Record<MeldungValidity, string> = {
+  review: "bg-amber-500",
+  valid: "bg-emerald-500",
+  invalid: "bg-red-500",
+};
 
 export function MeldungListItem({
   meldung,
@@ -74,11 +81,9 @@ export function MeldungListItem({
                 </span>
               ) : null}
               <span
-                className={`m-auto size-2 ${
-                  meldung.isValid ? "bg-emerald-500" : "bg-red-500"
-                }`}
-                aria-label={meldung.isValid ? "Gültig" : "Ungültig"}
-                title={meldung.isValid ? "Gültig" : "Ungültig"}
+                className={`m-auto size-2 ${VALIDITY_INDICATOR_CLASSES[meldung.isValid]}`}
+                aria-label={MELDUNG_VALIDITY_LABELS[meldung.isValid]}
+                title={MELDUNG_VALIDITY_LABELS[meldung.isValid]}
               />
             </div>
 

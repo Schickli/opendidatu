@@ -1,5 +1,7 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
+const meldungValidityValues = ['review', 'valid', 'invalid'] as const
+
 export const postenTable = sqliteTable('posten', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
@@ -37,7 +39,7 @@ export const meldungenTable = sqliteTable('meldungen', {
   comment: text('comment').notNull().default(''),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
-  isValid: integer('is_valid', { mode: 'boolean' }).notNull().default(true),
+  isValid: text('is_valid', { enum: meldungValidityValues }).notNull().default('review'),
 })
 
 export const meldungValuesTable = sqliteTable('meldung_values', {

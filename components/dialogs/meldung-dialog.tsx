@@ -19,6 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  MELDUNG_VALIDITY_LABELS,
+  type MeldungValidity,
+} from "@/lib/meldung-validity";
 import type { MeldungType, Posten } from "@/lib/store";
 
 interface MeldungDialogProps {
@@ -30,7 +34,7 @@ interface MeldungDialogProps {
   selectedTypeId: string;
   values: Record<string, string>;
   meldungComment: string;
-  meldungIsValid: boolean;
+  meldungValidity: MeldungValidity;
   createdAt?: number;
   updatedAt?: number;
   onOpenChange: (open: boolean) => void;
@@ -38,7 +42,7 @@ interface MeldungDialogProps {
   onTypeChange: (typeId: string) => void;
   onValueChange: (categoryId: string, value: string, maxDigits: number) => void;
   onCommentChange: (value: string) => void;
-  onValidityChange: (isValid: boolean) => void;
+  onValidityChange: (validity: MeldungValidity) => void;
   onSave: () => void;
 }
 
@@ -61,7 +65,7 @@ export function MeldungDialog({
   selectedTypeId,
   values,
   meldungComment,
-  meldungIsValid,
+  meldungValidity,
   createdAt,
   updatedAt,
   onOpenChange,
@@ -167,18 +171,19 @@ export function MeldungDialog({
               Gültigkeit
             </label>
             <RadioGroup
-              value={meldungIsValid ? "valid" : "invalid"}
-              onValueChange={(value) => onValidityChange(value === "valid")}
-              className="grid grid-cols-2 gap-2"
+              value={meldungValidity}
+              onValueChange={(value) => onValidityChange(value as MeldungValidity)}
+              className="grid grid-cols-3 gap-2"
             >
-              <Label className="flex items-center gap-2 border border-border px-3 py-2 text-xs uppercase tracking-wider">
-                <RadioGroupItem value="valid" />
-                Gültig
-              </Label>
-              <Label className="flex items-center gap-2 border border-border px-3 py-2 text-xs uppercase tracking-wider">
-                <RadioGroupItem value="invalid" />
-                Ungültig
-              </Label>
+              {(["review", "valid", "invalid"] as const).map((validity) => (
+                <Label
+                  key={validity}
+                  className="flex items-center gap-2 border border-border px-3 py-2 text-xs uppercase tracking-wider"
+                >
+                  <RadioGroupItem value={validity} />
+                  {MELDUNG_VALIDITY_LABELS[validity]}
+                </Label>
+              ))}
             </RadioGroup>
           </div>
 

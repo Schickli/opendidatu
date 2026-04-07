@@ -8,6 +8,12 @@ import { seedSampleDataIfNeeded } from '@/lib/server/seed'
 let sqlite: Database.Database | null = null
 let db: BetterSQLite3Database<typeof schema> | null = null
 
+type TableInfoRow = {
+  name: string
+  type: string
+  dflt_value: unknown
+}
+
 export function resolveDatabasePath() {
   const configuredPath = process.env.DATABASE_PATH
 
@@ -19,6 +25,50 @@ export function resolveDatabasePath() {
 }
 
 function ensureSchema(connection: Database.Database) {
+  const hasLegacyMeldungenValidity = () => {
+    const meldungenTableExists = connection
+      .prepare(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'meldungen' LIMIT 1`,
+      )
+      .get() as { name: string } | undefined
+
+    if (!meldungenTableExists) {
+      return false
+    }
+
+    const tableInfo = connection.prepare(`PRAGMA table_info('meldungen')`).all() as TableInfoRow[]
+    const validityColumn = tableInfo.find((column) => column.name === 'is_valid')
+
+    if (!validityColumn) {
+      return true
+    }
+
+    if (validityColumn.type.toUpperCase() !== 'TEXT') {
+      return true
+    }
+
+    const defaultValue = String(validityColumn.dflt_value ?? '').replaceAll("'", '').trim()
+    if (defaultValue !== 'review') {
+      return true
+    }
+
+    const legacyValueRow = connection
+      .prepare(`SELECT COUNT(*) as value FROM meldungen WHERE typeof(is_valid) = 'integer'`)
+      .get() as { value: number }
+
+    return legacyValueRow.value > 0
+  }
+
+  if (hasLegacyMeldungenValidity()) {
+    connection.exec(`
+      DROP TABLE IF EXISTS meldung_values;
+      DROP TABLE IF EXISTS meldungen;
+      DROP TABLE IF EXISTS message_type_categories;
+      DROP TABLE IF EXISTS message_types;
+      DROP TABLE IF EXISTS posten;
+    `)
+  }
+
   connection.exec(`
     PRAGMA foreign_keys = ON;
 
@@ -54,7 +104,7 @@ function ensureSchema(connection: Database.Database) {
       comment TEXT NOT NULL DEFAULT '',
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
-      is_valid INTEGER NOT NULL DEFAULT 1,
+      is_valid TEXT NOT NULL DEFAULT 'review' CHECK (is_valid IN ('review', 'valid', 'invalid')),
       FOREIGN KEY (posten_id) REFERENCES posten(id) ON DELETE CASCADE,
       FOREIGN KEY (type_id) REFERENCES message_types(id) ON DELETE RESTRICT
     );

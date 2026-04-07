@@ -19,6 +19,7 @@ import {
   messageTypesTable,
   postenTable,
 } from '@/lib/server/schema'
+import type { MeldungValidity } from '@/lib/meldung-validity'
 
 function nowTimestamp() {
   return Date.now()
@@ -130,7 +131,7 @@ function mapMeldungen(
     comment: string
     createdAt: number
     updatedAt: number
-    isValid: boolean
+    isValid: MeldungValidity
   }>,
 ) {
   const valuesByMeldungId = getMeldungValuesById(meldungRows.map((meldung) => meldung.id))
@@ -164,7 +165,7 @@ export function getBootstrapSnapshot(): BootstrapSnapshot {
       count: count(),
     })
     .from(meldungenTable)
-    .where(and(eq(meldungenTable.isValid, true), gt(meldungenTable.createdAt, oneHourAgo)))
+    .where(and(eq(meldungenTable.isValid, 'valid'), gt(meldungenTable.createdAt, oneHourAgo)))
     .groupBy(meldungenTable.postenId, meldungenTable.typeId)
     .all()
 
@@ -214,12 +215,8 @@ export function getMeldungenPage(options?: {
     filters.push(inArray(meldungenTable.typeId, filteredTypeIds))
   }
 
-  if (meldungenFilters?.validity === 'valid') {
-    filters.push(eq(meldungenTable.isValid, true))
-  }
-
-  if (meldungenFilters?.validity === 'invalid') {
-    filters.push(eq(meldungenTable.isValid, false))
+  if (meldungenFilters?.validity && meldungenFilters.validity !== 'all') {
+    filters.push(eq(meldungenTable.isValid, meldungenFilters.validity))
   }
 
   if (rangeStartAt !== null && rangeStartAt !== undefined) {
@@ -499,6 +496,8 @@ export function getAnalyticsData(options?: {
   rangeEndAt?: number
 }): AnalyticsData {
   const db = getDb()
+  const HOUR_MS = 60 * 60 * 1000
+  const floorToHour = (timestamp: number) => Math.floor(timestamp / HOUR_MS) * HOUR_MS
   const timeFilters: Array<ReturnType<typeof gte>> = []
 
   if (options?.rangeStartAt !== undefined) {
@@ -529,8 +528,8 @@ export function getAnalyticsData(options?: {
     .all()
 
   const validWhere = whereClause
-    ? and(whereClause, eq(meldungenTable.isValid, true))
-    : eq(meldungenTable.isValid, true)
+    ? and(whereClause, eq(meldungenTable.isValid, 'valid'))
+    : eq(meldungenTable.isValid, 'valid')
 
   const [{ value: validMeldungen }] = db
     .select({ value: count() })
@@ -538,7 +537,25 @@ export function getAnalyticsData(options?: {
     .where(validWhere)
     .all()
 
-  const invalidMeldungen = totalMeldungen - validMeldungen
+  const reviewWhere = whereClause
+    ? and(whereClause, eq(meldungenTable.isValid, 'review'))
+    : eq(meldungenTable.isValid, 'review')
+
+  const [{ value: reviewMeldungen }] = db
+    .select({ value: count() })
+    .from(meldungenTable)
+    .where(reviewWhere)
+    .all()
+
+  const invalidWhere = whereClause
+    ? and(whereClause, eq(meldungenTable.isValid, 'invalid'))
+    : eq(meldungenTable.isValid, 'invalid')
+
+  const [{ value: invalidMeldungen }] = db
+    .select({ value: count() })
+    .from(meldungenTable)
+    .where(invalidWhere)
+    .all()
 
   // Validity grouped by posten
   const validityGrouped = db
@@ -552,13 +569,15 @@ export function getAnalyticsData(options?: {
     .groupBy(meldungenTable.postenId, meldungenTable.isValid)
     .all()
 
-  const validityAgg = new Map<number, { valid: number; invalid: number }>()
+  const validityAgg = new Map<number, { review: number; valid: number; invalid: number }>()
   for (const row of validityGrouped) {
-    const cur = validityAgg.get(row.postenId) ?? { valid: 0, invalid: 0 }
-    if (row.isValid) {
+    const cur = validityAgg.get(row.postenId) ?? { review: 0, valid: 0, invalid: 0 }
+    if (row.isValid === 'valid') {
       cur.valid = row.count
-    } else {
+    } else if (row.isValid === 'invalid') {
       cur.invalid = row.count
+    } else {
+      cur.review = row.count
     }
     validityAgg.set(row.postenId, cur)
   }
@@ -566,7 +585,8 @@ export function getAnalyticsData(options?: {
   const validityByPosten = Array.from(validityAgg.entries()).map(([postenId, c]) => ({
     postenId,
     postenName: postenMap.get(postenId) ?? `Posten ${postenId}`,
-    total: c.valid + c.invalid,
+    total: c.review + c.valid + c.invalid,
+    review: c.review,
     valid: c.valid,
     invalid: c.invalid,
   }))
@@ -613,7 +633,7 @@ export function getAnalyticsData(options?: {
     const key = `${row.trendBucket}:${row.postenId}`
     const cur = hourlyAgg.get(key) ?? { hour: row.trendBucket, postenId: row.postenId, total: 0, valid: 0 }
     cur.total += row.count
-    if (row.isValid) {
+    if (row.isValid === 'valid') {
       cur.valid += row.count
     }
     hourlyAgg.set(key, cur)
@@ -624,10 +644,34 @@ export function getAnalyticsData(options?: {
     postenName: postenMap.get(entry.postenId) ?? `Posten ${entry.postenId}`,
   }))
 
+  const observedHours = hourlyTrend.map((entry) => floorToHour(entry.hour))
+  const observedHourStart = observedHours.length > 0 ? Math.min(...observedHours) : undefined
+  const observedHourEnd = observedHours.length > 0 ? Math.max(...observedHours) : undefined
+  const hourRangeStart =
+    options?.rangeStartAt !== undefined
+      ? floorToHour(options.rangeStartAt)
+      : observedHourStart
+  const hourRangeEnd =
+    options?.rangeEndAt !== undefined ? floorToHour(options.rangeEndAt) : observedHourEnd
+  const distinctHours =
+    hourRangeStart !== undefined && hourRangeEnd !== undefined
+      ? Math.max(1, Math.floor((hourRangeEnd - hourRangeStart) / HOUR_MS) + 1)
+      : 1
+
   // Compliance: avg messages per hour vs minPerHour
-  const distinctHours = new Set(hourlyTrend.map((e) => e.hour)).size || 1
+  const validMsgByTypeGrouped = db
+    .select({
+      postenId: meldungenTable.postenId,
+      typeId: meldungenTable.typeId,
+      count: count(),
+    })
+    .from(meldungenTable)
+    .where(validWhere)
+    .groupBy(meldungenTable.postenId, meldungenTable.typeId)
+    .all()
+
   const complianceMap = new Map<string, number>()
-  for (const row of msgByTypeGrouped) {
+  for (const row of validMsgByTypeGrouped) {
     complianceMap.set(`${row.postenId}:${row.typeId}`, row.count)
   }
 
@@ -647,7 +691,7 @@ export function getAnalyticsData(options?: {
     }
   }
 
-  // Hourly counts by type (for per-hour compliance heatmap)
+  // Hourly valid counts by type (for per-hour compliance heatmap)
   const hourlyByTypeRows = db
     .select({
       hourBucket,
@@ -656,7 +700,7 @@ export function getAnalyticsData(options?: {
       count: count(),
     })
     .from(meldungenTable)
-    .where(whereClause)
+    .where(validWhere)
     .groupBy(hourBucket, meldungenTable.postenId, meldungenTable.typeId)
     .orderBy(hourBucket)
     .all()
@@ -673,6 +717,7 @@ export function getAnalyticsData(options?: {
 
   return {
     totalMeldungen,
+    reviewMeldungen,
     validMeldungen,
     invalidMeldungen,
     validityByPosten,

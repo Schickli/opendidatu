@@ -1,4 +1,5 @@
 import type { SwissCoordinates } from './coordinates'
+import type { MeldungValidity } from './meldung-validity'
 
 export interface Posten {
   id: number
@@ -35,7 +36,7 @@ export interface Meldung {
   comment: string
   createdAt: number
   updatedAt: number
-  isValid: boolean
+  isValid: MeldungValidity
 }
 
 let nextClientId = -1
@@ -205,6 +206,7 @@ function createMeldung(
   comment = ''
 ): Meldung {
   const createdAt = timestampMinutesAgo(minutesAgo)
+  const validityBySeed: MeldungValidity[] = ['review', 'valid', 'invalid']
 
   return {
     id,
@@ -214,7 +216,7 @@ function createMeldung(
     comment,
     createdAt,
     updatedAt: createdAt,
-    isValid: seed % 2 == 0 ? true : false,
+    isValid: validityBySeed[seed % validityBySeed.length],
   }
 }
 

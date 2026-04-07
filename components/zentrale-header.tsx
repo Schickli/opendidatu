@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import Link from "next/link";
-import { BarChart3, Info, LoaderCircle, Upload, X } from "lucide-react";
+import { BarChart3, LoaderCircle, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useData } from "@/lib/data-context";
 

@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import {
+  MELDUNG_VALIDITY_FILTER_VALUES,
+  MELDUNG_VALIDITY_VALUES,
+} from '@/lib/meldung-validity'
 
 export const swissCoordinatesSchema = z.object({
   easting: z.number().int(),
@@ -40,7 +44,7 @@ export const meldungSchema = z.object({
   comment: z.string(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
-  isValid: z.boolean(),
+  isValid: z.enum(MELDUNG_VALIDITY_VALUES),
 })
 
 export const meldungLastHourCountSchema = z.object({
@@ -49,7 +53,7 @@ export const meldungLastHourCountSchema = z.object({
   count: z.number().int().nonnegative(),
 })
 
-export const meldungValidityFilterSchema = z.enum(['all', 'valid', 'invalid'])
+export const meldungValidityFilterSchema = z.enum(MELDUNG_VALIDITY_FILTER_VALUES)
 
 export const meldungenFiltersSchema = z.object({
   typeIds: z.array(z.number().int().positive()),
@@ -120,7 +124,7 @@ export const updateMeldungSchema = z.object({
   postenId: z.number().int().positive().optional(),
   values: z.array(meldungValueSchema).optional(),
   comment: z.string().optional(),
-  isValid: z.boolean().optional(),
+  isValid: z.enum(MELDUNG_VALIDITY_VALUES).optional(),
 })
 
 export type BootstrapSnapshot = z.infer<typeof bootstrapSnapshotSchema>
@@ -145,6 +149,7 @@ export const analyticsValidityByPostenSchema = z.object({
   postenId: z.number(),
   postenName: z.string(),
   total: z.number(),
+  review: z.number(),
   valid: z.number(),
   invalid: z.number(),
 })
@@ -186,6 +191,7 @@ export const analyticsHourlyByTypeSchema = z.object({
 
 export const analyticsDataSchema = z.object({
   totalMeldungen: z.number(),
+  reviewMeldungen: z.number(),
   validMeldungen: z.number(),
   invalidMeldungen: z.number(),
   validityByPosten: z.array(analyticsValidityByPostenSchema),

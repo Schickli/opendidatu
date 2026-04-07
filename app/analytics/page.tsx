@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock,
   FileWarning,
+  Hourglass,
   XCircle,
 } from "lucide-react";
 import {
@@ -89,17 +90,32 @@ const TYPE_COLORS = [
   "hsl(25, 95%, 53%)",
 ];
 
+const HOUR_MS = 60 * 60 * 1000;
+
+function floorToHour(timestamp: number) {
+  return Math.floor(timestamp / HOUR_MS) * HOUR_MS;
+}
+
+function buildHourBuckets(startAt: number, endAt: number) {
+  if (endAt < startAt) return [] as number[];
+
+  const buckets: number[] = [];
+  for (
+    let hour = floorToHour(startAt);
+    hour <= floorToHour(endAt);
+    hour += HOUR_MS
+  ) {
+    buckets.push(hour);
+  }
+
+  return buckets;
+}
+
 function formatHour(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString("de-CH", {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function toLocalDatetime(ts: number) {
-  const d = new Date(ts);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export default function AnalyticsPage() {
@@ -110,6 +126,10 @@ export default function AnalyticsPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [rangeOpen, setRangeOpen] = useState(false);
+  const [loadedRange, setLoadedRange] = useState<{
+    rangeStartAt?: number;
+    rangeEndAt?: number;
+  }>({});
 
   const loadDataWithRange = useCallback(
     async (rangeStartAt?: number, rangeEndAt?: number) => {
@@ -120,6 +140,7 @@ export default function AnalyticsPage() {
           rangeStartAt !== undefined ? { rangeStartAt, rangeEndAt } : undefined;
         const result = await fetchAnalytics(options);
         setData(result);
+        setLoadedRange({ rangeStartAt, rangeEndAt });
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Fehler beim Laden der Daten.",
@@ -296,7 +317,11 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Compliance heatmap - full width */}
-        <ComplianceHeatmap data={data} />
+        <ComplianceHeatmap
+          data={data}
+          rangeStartAt={loadedRange.rangeStartAt}
+          rangeEndAt={loadedRange.rangeEndAt}
+        />
       </div>
     </div>
   );
@@ -311,7 +336,7 @@ function SummaryCards({ data }: { data: AnalyticsData }) {
       : 0;
 
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium font-mono">
@@ -338,6 +363,24 @@ function SummaryCards({ data }: { data: AnalyticsData }) {
           </div>
           <p className="text-xs text-muted-foreground font-mono">
             {validityRate}% Gültigkeitsrate
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium font-mono">
+            Zu prüfen
+          </CardTitle>
+          <Hourglass className="h-4 w-4 text-amber-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold font-mono text-amber-600">
+            {data.reviewMeldungen.toLocaleString("de-CH")}
+          </div>
+          <p className="text-xs text-muted-foreground font-mono">
+            {data.totalMeldungen > 0
+              ? `${Math.round((data.reviewMeldungen / data.totalMeldungen) * 1000) / 10}% Prüfquote`
+              : "0% Prüfquote"}
           </p>
         </CardContent>
       </Card>
@@ -383,7 +426,11 @@ function SummaryCards({ data }: { data: AnalyticsData }) {
 
 function ValidityPieChart({ data }: { data: AnalyticsData }) {
   const { pieData, chartConfig } = useMemo(() => {
-    if (data.invalidMeldungen === 0 && data.validMeldungen === 0) {
+    if (
+      data.invalidMeldungen === 0 &&
+      data.reviewMeldungen === 0 &&
+      data.validMeldungen === 0
+    ) {
       return {
         pieData: [],
         chartConfig: { value: { label: "Anteil" } } as ChartConfig,
@@ -409,6 +456,18 @@ function ValidityPieChart({ data }: { data: AnalyticsData }) {
         fill: "hsl(142, 71%, 45%)",
       });
     }
+
+    const reviewPosten = data.validityByPosten.filter((p) => p.review > 0);
+    reviewPosten.forEach((p, i) => {
+      const pct = Math.round((p.review / total) * 1000) / 10;
+      slices.push({
+        name: `${p.postenName} (zu prüfen)`,
+        value: pct,
+        percent: pct,
+        count: p.review,
+        fill: `hsl(${40 + (i % 4) * 8}, 92%, 50%)`,
+      });
+    });
 
     const invalidPosten = data.validityByPosten.filter((p) => p.invalid > 0);
     invalidPosten.forEach((p, i) => {
@@ -764,15 +823,18 @@ function HourlyTrendChart({ data }: { data: AnalyticsData }) {
 function ValidityByPostenBar({ data }: { data: AnalyticsData }) {
   const chartConfig: ChartConfig = {
     validPct: { label: "Gültig %", color: "hsl(142, 71%, 45%)" },
+    reviewPct: { label: "Zu prüfen %", color: "hsl(38, 92%, 50%)" },
     invalidPct: { label: "Ungültig %", color: "hsl(0, 84%, 60%)" },
   };
 
   const chartData = data.validityByPosten.map((p) => {
-    const total = p.valid + p.invalid;
+    const total = p.valid + p.review + p.invalid;
     return {
       posten: p.postenName,
       validPct: total > 0 ? Math.round((p.valid / total) * 1000) / 10 : 0,
+      reviewPct: total > 0 ? Math.round((p.review / total) * 1000) / 10 : 0,
       invalidPct: total > 0 ? Math.round((p.invalid / total) * 1000) / 10 : 0,
+      review: p.review,
       valid: p.valid,
       invalid: p.invalid,
       total,
@@ -827,6 +889,7 @@ function ValidityByPostenBar({ data }: { data: AnalyticsData }) {
                 <ChartTooltipContent
                   formatter={(value, name, item) => {
                     const d = item.payload as {
+                      review: number;
                       valid: number;
                       invalid: number;
                       total: number;
@@ -837,6 +900,13 @@ function ValidityByPostenBar({ data }: { data: AnalyticsData }) {
                           Gültig: {value}% ({d.valid.toLocaleString("de-CH")})
                         </span>
                       );
+                    if (name === "reviewPct") {
+                      return (
+                        <span className="font-mono">
+                          Zu prüfen: {value}% ({d.review.toLocaleString("de-CH")})
+                        </span>
+                      );
+                    }
                     return (
                       <span className="font-mono">
                         Ungültig: {value}% ({d.invalid.toLocaleString("de-CH")})
@@ -854,6 +924,12 @@ function ValidityByPostenBar({ data }: { data: AnalyticsData }) {
               radius={0}
             />
             <Bar
+              dataKey="reviewPct"
+              stackId="a"
+              fill="hsl(38, 92%, 50%)"
+              radius={0}
+            />
+            <Bar
               dataKey="invalidPct"
               stackId="a"
               fill="hsl(0, 84%, 60%)"
@@ -868,13 +944,21 @@ function ValidityByPostenBar({ data }: { data: AnalyticsData }) {
 
 // ─── Compliance Heatmap ──────────────────────────────────────────────────────
 
-function ComplianceHeatmap({ data }: { data: AnalyticsData }) {
+function ComplianceHeatmap({
+  data,
+  rangeStartAt,
+  rangeEndAt,
+}: {
+  data: AnalyticsData;
+  rangeStartAt?: number;
+  rangeEndAt?: number;
+}) {
   const complianceTypes = useMemo(() => {
     const seen = new Map<
       number,
       { typeId: number; typeName: string; minPerHour: number }
     >();
-    for (const row of data.hourlyByType) {
+    for (const row of data.compliance) {
       if (row.minPerHour > 0 && !seen.has(row.typeId)) {
         seen.set(row.typeId, {
           typeId: row.typeId,
@@ -883,8 +967,10 @@ function ComplianceHeatmap({ data }: { data: AnalyticsData }) {
         });
       }
     }
-    return Array.from(seen.values());
-  }, [data.hourlyByType]);
+    return Array.from(seen.values()).sort((left, right) =>
+      left.typeName.localeCompare(right.typeName),
+    );
+  }, [data.compliance]);
 
   const [selectedTypeId, setSelectedTypeId] = useState<string>(
     complianceTypes[0]?.typeId.toString() ?? "",
@@ -921,19 +1007,45 @@ function ComplianceHeatmap({ data }: { data: AnalyticsData }) {
     const filtered = data.hourlyByType.filter((r) => r.typeId === typeId);
 
     const postenNameSet = new Set<string>();
-    const hourSet = new Set<number>();
-    for (const row of filtered) {
-      postenNameSet.add(row.postenName);
-      hourSet.add(row.hour);
+    for (const row of data.compliance) {
+      if (row.typeId === typeId) {
+        postenNameSet.add(row.postenName);
+      }
     }
 
-    // Also include all posten from the data (even those with 0 messages for this type)
-    for (const p of data.validityByPosten) {
-      postenNameSet.add(p.postenName);
+    const observedHours = filtered.map((row) => row.hour);
+    const fallbackHours =
+      data.hourlyByType.length > 0
+        ? data.hourlyByType.map((row) => row.hour)
+        : data.hourlyTrend.map((row) => floorToHour(row.hour));
+
+    for (const row of filtered) {
+      postenNameSet.add(row.postenName);
+    }
+
+    if (postenNameSet.size === 0) {
+      for (const p of data.validityByPosten) {
+        postenNameSet.add(p.postenName);
+      }
     }
 
     const postenNames = Array.from(postenNameSet).sort();
-    const hours = Array.from(hourSet).sort((a, b) => a - b);
+    const observedHourStart =
+      observedHours.length > 0 ? Math.min(...observedHours) : undefined;
+    const observedHourEnd =
+      observedHours.length > 0 ? Math.max(...observedHours) : undefined;
+    const fallbackHourStart =
+      fallbackHours.length > 0 ? Math.min(...fallbackHours) : undefined;
+    const fallbackHourEnd =
+      fallbackHours.length > 0 ? Math.max(...fallbackHours) : undefined;
+    const resolvedStart =
+      rangeStartAt ?? observedHourStart ?? fallbackHourStart ?? rangeEndAt;
+    const resolvedEnd =
+      rangeEndAt ?? observedHourEnd ?? fallbackHourEnd ?? resolvedStart;
+    const hours =
+      resolvedStart !== undefined && resolvedEnd !== undefined
+        ? buildHourBuckets(resolvedStart, resolvedEnd)
+        : [];
 
     const cellMap = new Map<string, { count: number; reached: boolean }>();
     for (const row of filtered) {
@@ -976,7 +1088,15 @@ function ComplianceHeatmap({ data }: { data: AnalyticsData }) {
       postenRows,
       stats: { totalSlots, reachedSlots },
     };
-  }, [data.hourlyByType, data.validityByPosten, selectedType]);
+  }, [
+    data.compliance,
+    data.hourlyByType,
+    data.hourlyTrend,
+    data.validityByPosten,
+    rangeEndAt,
+    rangeStartAt,
+    selectedType,
+  ]);
 
   if (complianceTypes.length === 0) {
     return (
